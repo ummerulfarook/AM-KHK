@@ -195,22 +195,22 @@
 <div class="page">
 
   <!-- Header -->
-  <div class="header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #059669; padding-bottom: 12px; margin-bottom: 12px;">
+  <div class="header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2.5px solid #000000; padding-bottom: 12px; margin-bottom: 12px;">
     <div style="display: flex; align-items: center; gap: 15px;">
       {% if logo_base64 %}
         <img src="{{ logo_base64 }}" style="max-height: 52px; border-radius: 8px;" alt="AM & KHK Logo" />
       {% endif %}
       <div>
-        <div class="shop-name" style="font-size: 18px; font-weight: 700; color: #0E3A2A;">AM & KHK Vegetable Merchants</div>
-        <div class="shop-sub" style="font-size: 10px; color: #71837A; margin-top: 3px; line-height: 1.4;">
+        <div class="shop-name" style="font-size: 20px; font-weight: 800; color: #000000; text-transform: uppercase;">AM & KHK Vegetable Merchants</div>
+        <div class="shop-sub" style="font-size: 10.5px; color: #000000; margin-top: 3px; line-height: 1.4; font-weight: 600;">
           NH-17, CHERANALOR, ERNAKULAM<br>
           Ph: +91 9846089118, +91 9895110194, +91 7012794021
         </div>
       </div>
     </div>
-    <div class="invoice-meta">
-      <div class="invoice-num">{{ sale.invoice_number }}</div>
-      <div class="invoice-date">
+    <div class="invoice-meta" style="text-align: right;">
+      <div class="invoice-num" style="font-size: 18px; font-weight: 800; color: #000000; letter-spacing: 0.2px;">NO: {{ sale.invoice_number }}</div>
+      <div class="invoice-date" style="font-size: 11px; color: #000000; font-weight: 600; margin-top: 3px;">
         {{ sale.created_at.strftime('%d %b %Y, %I:%M %p') }}
       </div>
     </div>
