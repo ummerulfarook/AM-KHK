@@ -247,15 +247,15 @@
     <tbody>
       {% for item in sale.items %}
       <tr>
-        <td style="text-align: left; white-space: nowrap;">₹{{ "%.2f"|format(item.unit_price / 100) }}</td>
+        <td style="text-align: left; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: #000000;">₹{{ "%.2f"|format(item.unit_price / 100) }}</td>
         <td style="text-align: left;">
-          <strong>{{ item.product.name if item.product else '—' }}</strong>
+          <strong style="font-size: 13px;">{{ item.product.name if item.product else '—' }}</strong>
           {% if item.product and item.product.unit %}
-            <span style="font-size:10px;color:#000000;font-weight:500;">({{ item.product.unit }})</span>
+            <span style="font-size:10px;color:#000000;font-weight:600;">({{ item.product.unit }})</span>
           {% endif %}
         </td>
-        <td style="text-align: right;">{{ item.quantity }}</td>
-        <td style="text-align: right; font-weight: 600; white-space: nowrap;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
+        <td style="text-align: right; font-size: 13.5px; font-weight: 600; color: #000000;">{{ item.quantity }}</td>
+        <td style="text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap; color: #000000;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -263,43 +263,43 @@
 
   <!-- Totals -->
   <div class="totals">
-    <div class="totals-row">
+    <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
       <span class="totals-label">Subtotal</span>
       <span>₹{{ "%.2f"|format(sale.subtotal / 100) }}</span>
     </div>
     {% if sale.discount > 0 %}
-    <div class="totals-row">
+    <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
       <span class="totals-label">Discount</span>
-      <span style="color:#E5484D;">−₹{{ "%.2f"|format(sale.discount / 100) }}</span>
+      <span style="color:#E5484D; font-weight: 700;">−₹{{ "%.2f"|format(sale.discount / 100) }}</span>
     </div>
     {% endif %}
     {% if sale.tax > 0 %}
-    <div class="totals-row">
+    <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
       <span class="totals-label">Tax</span>
       <span>₹{{ "%.2f"|format(sale.tax / 100) }}</span>
     </div>
     {% endif %}
-    <div class="totals-row total">
+    <div class="totals-row total" style="border-top: 2px solid #000000; margin-top: 7px; padding-top: 9px; font-size: 17px; font-weight: 800; color: #000000;">
       <span>Total</span>
       <span>₹{{ "%.2f"|format(sale.total / 100) }}</span>
     </div>
     {% if sale.customer %}
-    <div class="totals-row" style="border-top: 1px dashed #E2EBE4; margin-top: 5px; padding-top: 5px;">
+    <div class="totals-row" style="border-top: 1px dashed #000000; margin-top: 6px; padding-top: 6px; font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
       <span class="totals-label">Prev. Due</span>
       <span>₹{{ "%.2f"|format(sale.previous_balance / 100) }}</span>
     </div>
-    <div class="totals-row">
+    <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
       <span class="totals-label">Received</span>
       <span>₹{{ "%.2f"|format(sale.amount_paid / 100) }}</span>
     </div>
     {% set bill_left = sale.total - sale.amount_paid if sale.total > sale.amount_paid else 0 %}
-    <div class="totals-row">
+    <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
       <span class="totals-label">Bill Left</span>
       <span>₹{{ "%.2f"|format(bill_left / 100) }}</span>
     </div>
-    <div class="totals-row">
+    <div class="totals-row" style="font-size: 14.5px; font-weight: 700; color: #000000;">
       <span class="totals-label">Total Due</span>
-      <span style="font-weight: 700; color: #E5484D;">₹{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</span>
+      <span style="font-weight: 800; color: #E5484D;">₹{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</span>
     </div>
     {% endif %}
   </div>

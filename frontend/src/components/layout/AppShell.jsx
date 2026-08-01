@@ -47,12 +47,11 @@ export default function AppShell() {
           'nav, header, .MuiAppBar-root, button, .no-print, .MuiTabs-root, .MuiPagination-root': {
             display: 'none !important',
           },
-          '*': {
-            color: '#000000 !important',
-            borderColor: '#000000 !important',
-            opacity: '1 !important',
-            boxShadow: 'none !important',
-            textShadow: 'none !important',
+          '.MuiTypography-colorTextSecondary, .MuiTypography-body2, .text-secondary': {
+            color: '#2d3748 !important', /* Exaggerate dimmed secondary text colors to dark charcoal */
+          },
+          '.MuiTableCell-root': {
+            borderColor: '#a0aec0 !important', /* Make table grid borders darker gray for clear printing */
           },
           '.print-main': {
             marginLeft: '0 !important',
