@@ -11,7 +11,7 @@
     body {
       font-family: 'Poppins', sans-serif;
       font-size: 13px;
-      color: #0F2419;
+      color: #000000;
       background: #fff;
       padding: 0;
     }
@@ -29,19 +29,20 @@
       justify-content: space-between;
       align-items: flex-start;
       padding-bottom: 10px;
-      border-bottom: 2px solid #059669;
+      border-bottom: 2px solid #000000;
       margin-bottom: 12px;
     }
 
     .shop-name {
       font-size: 18px;
       font-weight: 700;
-      color: #0E3A2A;
+      color: #000000;
       line-height: 1.2;
     }
     .shop-sub {
       font-size: 10px;
-      color: #71837A;
+      color: #000000;
+      font-weight: 500;
       margin-top: 3px;
     }
 
@@ -51,37 +52,40 @@
     .invoice-num {
       font-size: 15px;
       font-weight: 700;
-      color: #059669;
+      color: #000000;
     }
     .invoice-date {
       font-size: 10px;
-      color: #71837A;
+      color: #000000;
+      font-weight: 500;
       margin-top: 2px;
     }
 
     /* ── Customer block ── */
     .customer-block {
-      background: #EEF5F0;
+      background: #f0f0f0;
+      border: 1px solid #cccccc;
       border-radius: 8px;
       padding: 8px 12px;
       margin-bottom: 12px;
     }
     .customer-label {
       font-size: 9px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: #71837A;
+      color: #000000;
       margin-bottom: 3px;
     }
     .customer-name {
       font-size: 13px;
-      font-weight: 600;
-      color: #0F2419;
+      font-weight: 700;
+      color: #000000;
     }
     .customer-phone {
       font-size: 11px;
-      color: #71837A;
+      color: #000000;
+      font-weight: 500;
     }
 
     /* ── Items table ── */
@@ -91,10 +95,10 @@
       margin-bottom: 10px;
     }
     thead th {
-      background: #0E3A2A;
+      background: #000000;
       color: #fff;
       font-size: 10px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       padding: 6px 8px;
@@ -108,12 +112,13 @@
     tbody td {
       padding: 6px 8px;
       font-size: 12px;
-      border-bottom: 1px solid #E2EBE4;
+      border-bottom: 1px solid #000000;
+      color: #000000;
     }
     tbody td:nth-child(2),
     tbody td:nth-child(3),
     tbody td:nth-child(4) { text-align: right; }
-    tbody td:last-child { text-align: right; font-weight: 600; }
+    tbody td:last-child { text-align: right; font-weight: 700; color: #000000; }
     tbody tr:last-child td { border-bottom: none; }
 
     /* ── Totals ── */
@@ -127,16 +132,18 @@
       justify-content: space-between;
       padding: 3px 0;
       font-size: 12px;
+      color: #000000;
+      font-weight: 500;
     }
     .totals-row.total {
-      border-top: 2px solid #059669;
+      border-top: 2px solid #000000;
       margin-top: 5px;
       padding-top: 7px;
       font-size: 14px;
       font-weight: 700;
-      color: #0E3A2A;
+      color: #000000;
     }
-    .totals-label { color: #71837A; }
+    .totals-label { color: #000000; font-weight: 600; }
 
     /* ── Payment badge ── */
     .payment-row {
@@ -145,42 +152,43 @@
       gap: 8px;
       margin-bottom: 12px;
     }
-    .payment-label { font-size: 11px; color: #71837A; }
+    .payment-label { font-size: 11px; color: #000000; font-weight: 600; }
     .payment-badge {
       display: inline-block;
       padding: 2px 10px;
+      border: 1px solid #000000;
       border-radius: 999px;
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
+      color: #000000;
+      background: #ffffff;
     }
-    .payment-cash    { background: #D1FAE5; color: #059669; }
-    .payment-upi     { background: #DBEAFE; color: #3F7FE0; }
-    .payment-bank    { background: #DBEAFE; color: #3F7FE0; }
-    .payment-credit  { background: #FEF3C7; color: #F0940C; }
 
     /* ── Notes ── */
     .notes {
       font-size: 11px;
-      color: #71837A;
-      background: #F4F8F5;
-      border-left: 3px solid #059669;
+      color: #000000;
+      background: #f0f0f0;
+      border-left: 3px solid #000000;
       padding: 6px 10px;
       border-radius: 4px;
       margin-bottom: 12px;
+      font-weight: 500;
     }
 
     /* ── Footer ── */
     .footer {
-      border-top: 1px solid #E2EBE4;
+      border-top: 1px solid #000000;
       padding-top: 10px;
       text-align: center;
-      color: #71837A;
+      color: #000000;
       font-size: 10px;
       line-height: 1.6;
+      font-weight: 500;
     }
-    .footer strong { color: #059669; }
+    .footer strong { color: #000000; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -243,7 +251,7 @@
         <td style="text-align: left;">
           <strong>{{ item.product.name if item.product else '—' }}</strong>
           {% if item.product and item.product.unit %}
-            <span style="font-size:10px;color:#71837A;">({{ item.product.unit }})</span>
+            <span style="font-size:10px;color:#000000;font-weight:500;">({{ item.product.unit }})</span>
           {% endif %}
         </td>
         <td style="text-align: right;">{{ item.quantity }}</td>

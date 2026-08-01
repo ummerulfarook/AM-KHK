@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   Alert, Box, Card, CardContent, CardHeader, Chip, Divider, FormControl,
   InputLabel, MenuItem, Pagination, Select, Skeleton, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
   InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Button,
-  IconButton, Paper, Autocomplete, Snackbar
+  IconButton, Paper, Autocomplete, Snackbar, Tooltip
 } from '@mui/material'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
@@ -36,6 +36,36 @@ export default function SalesHistoryPage() {
   const [editCashPaid, setEditCashPaid] = useState('')
   const [editSearchProduct, setEditSearchProduct] = useState('')
   const [toast, setToast] = useState({ open: false, msg: '', severity: 'success' })
+
+  // Delete & Reprint states
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [saleToDelete, setSaleToDelete] = useState(null)
+  const [printingId, setPrintingId] = useState(null)
+
+  const deleteSaleMutation = useMutation({
+    mutationFn: billingApi.deleteSale,
+    onSuccess: () => {
+      showToast('Invoice deleted and stock restored successfully')
+      setDeleteConfirmOpen(false)
+      setSaleToDelete(null)
+      refetch()
+    },
+    onError: (err) => {
+      showToast(err?.response?.data?.error || 'Failed to delete invoice', 'error')
+    }
+  })
+
+  const handleReprint = async (saleId) => {
+    setPrintingId(saleId)
+    try {
+      await billingApi.printReceipt(saleId)
+      showToast('Receipt sent to printer')
+    } catch (err) {
+      showToast(err?.response?.data?.error || 'Printer not available', 'warning')
+    } finally {
+      setPrintingId(null)
+    }
+  }
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['sales-history', page, paymentFilter, dateFrom, dateTo],
@@ -213,24 +243,54 @@ export default function SalesHistoryPage() {
                     <TableCell align="right" sx={{ fontWeight: 700, color: tokens.emerald600 }}>
                       {fmt(sale.total)}
                     </TableCell>
-                    <TableCell align="center" className="no-print">
-                      <IconButton
-                        id={`btn-view-sale-${sale.id}`}
-                        size="small"
-                        color="primary"
-                        onClick={() => setSelectedSale(sale)}
-                      >
-                        <VisibilityRoundedIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        id={`btn-edit-sale-${sale.id}`}
-                        size="small"
-                        color="warning"
-                        onClick={() => handleOpenEdit(sale)}
-                        sx={{ ml: 1 }}
-                      >
-                        <EditRoundedIcon fontSize="small" />
-                      </IconButton>
+                    <TableCell align="center" className="no-print" style={{ whiteSpace: 'nowrap' }}>
+                      <Tooltip title="View Invoice">
+                        <IconButton
+                          id={`btn-view-sale-${sale.id}`}
+                          size="small"
+                          color="primary"
+                          onClick={() => setSelectedSale(sale)}
+                        >
+                          <VisibilityRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Edit Invoice">
+                        <IconButton
+                          id={`btn-edit-sale-${sale.id}`}
+                          size="small"
+                          color="warning"
+                          onClick={() => handleOpenEdit(sale)}
+                          sx={{ ml: 0.5 }}
+                        >
+                          <EditRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Reprint Thermal Receipt">
+                        <IconButton
+                          id={`btn-print-sale-${sale.id}`}
+                          size="small"
+                          color="success"
+                          onClick={() => handleReprint(sale.id)}
+                          disabled={printingId === sale.id}
+                          sx={{ ml: 0.5 }}
+                        >
+                          {printingId === sale.id ? <CircularProgress size={18} /> : <PrintRoundedIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Invoice">
+                        <IconButton
+                          id={`btn-delete-sale-${sale.id}`}
+                          size="small"
+                          color="error"
+                          onClick={() => {
+                            setSaleToDelete(sale)
+                            setDeleteConfirmOpen(true)
+                          }}
+                          sx={{ ml: 0.5 }}
+                        >
+                          <DeleteRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -534,6 +594,37 @@ export default function SalesHistoryPage() {
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Delete Invoice?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: tokens.textSecondary, mb: 1 }}>
+            Are you sure you want to delete invoice <strong>{saleToDelete?.invoiceNumber || `#${saleToDelete?.id}`}</strong>?
+          </Typography>
+          <Typography variant="body2" sx={{ color: tokens.red500, fontWeight: 600 }}>
+            ⚠️ This will restore the sold quantities back to inventory and subtract the amount from the customer's dues. This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteConfirmOpen(false)} variant="outlined" sx={{ borderRadius: '10px' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => deleteSaleMutation.mutate(saleToDelete.id)}
+            variant="contained"
+            color="error"
+            disabled={deleteSaleMutation.isPending}
+            sx={{ borderRadius: '10px' }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Snackbar Toast */}

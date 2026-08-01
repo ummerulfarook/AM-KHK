@@ -41,4 +41,7 @@ export const billingApi = {
 
   /** POST /api/billing/return — record return */
   recordReturn: (data) => api.post('/api/billing/return', data).then(r => r.data),
+
+  /** DELETE /api/billing/sale/:id — delete a sale */
+  deleteSale: (id) => api.delete(`/api/billing/sale/${id}`).then(r => r.data),
 }

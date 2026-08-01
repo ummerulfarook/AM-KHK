@@ -500,3 +500,35 @@ def clear_customer_dues(cust_id: int):
     except Exception as exc:
         db.session.rollback()
         return jsonify({"error": f"Failed to record customer payment: {exc}"}), 500
+
+
+@customers_bp.route("/<int:customer_id>", methods=["DELETE"])
+@login_required
+@require_roles("owner", "manager")
+def delete_customer(customer_id: int):
+    """Delete a customer if they have no active transactions or history."""
+    customer = db.session.get(Customer, customer_id)
+    if not customer:
+        return jsonify({"error": "Customer not found"}), 404
+        
+    # Check if they have sales
+    has_sales = db.session.execute(
+        db.select(RetailSale).where(RetailSale.customer_id == customer_id)
+    ).scalars().first()
+    
+    # Check if they have credit entries
+    has_credit = db.session.execute(
+        db.select(CreditLedger).where(CreditLedger.customer_id == customer_id)
+    ).scalars().first()
+    
+    if has_sales or has_credit:
+        return jsonify({"error": "Cannot delete customer with active sales or credit transaction history."}), 400
+        
+    try:
+        db.session.delete(customer)
+        db.session.commit()
+        return jsonify({"message": "Customer deleted successfully"}), 200
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to delete customer: {exc}"}), 500
+

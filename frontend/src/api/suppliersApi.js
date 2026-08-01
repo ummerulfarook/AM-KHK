@@ -13,6 +13,9 @@ export const suppliersApi = {
   /** DELETE /api/suppliers/:id — Toggle active/inactive */
   toggleSupplierActive: (id) => api.delete(`/api/suppliers/${id}`).then(r => r.data),
 
+  /** DELETE /api/suppliers/:id — Delete supplier */
+  deleteSupplier: (id) => api.delete(`/api/suppliers/${id}`).then(r => r.data),
+
   /** GET /api/suppliers/po/ — List Purchase Orders */
   listPurchaseOrders: (params = {}) => api.get('/api/suppliers/po/', { params }).then(r => r.data),
 

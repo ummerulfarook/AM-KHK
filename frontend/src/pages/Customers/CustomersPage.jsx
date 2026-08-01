@@ -15,6 +15,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
 import BlockRoundedIcon from '@mui/icons-material/BlockRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import { customersApi } from '../../api/customersApi'
 import { tokens } from '../../theme/theme'
 import { useAuth } from '../../contexts/AuthContext'
@@ -32,6 +33,8 @@ export default function CustomersPage() {
   const [typeFilter, setTypeFilter] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(null) // null means creating
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [customerToDelete, setCustomerToDelete] = useState(null)
 
   // Form Fields
   const [name, setName] = useState('')
@@ -84,9 +87,22 @@ export default function CustomersPage() {
   })
 
   const toggleMutation = useMutation({
+    queryKey: ['customers'],
     mutationFn: customersApi.toggleCustomerActive,
     onSuccess: () => {
       qc.invalidateQueries(['customers'])
+    }
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: customersApi.deleteCustomer,
+    onSuccess: () => {
+      qc.invalidateQueries(['customers'])
+      setDeleteConfirmOpen(false)
+      setCustomerToDelete(null)
+    },
+    onError: (err) => {
+      alert(err?.response?.data?.error || 'Failed to delete customer')
     }
   })
 
@@ -285,6 +301,21 @@ export default function CustomersPage() {
                             </IconButton>
                           </Tooltip>
                         )}
+                        {canModify && (
+                          <Tooltip title="Delete Customer">
+                            <IconButton
+                              id={`btn-delete-${c.id}`}
+                              size="small"
+                              color="error"
+                              onClick={() => {
+                                setCustomerToDelete(c)
+                                setDeleteConfirmOpen(true)
+                              }}
+                            >
+                              <DeleteRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -419,6 +450,37 @@ export default function CustomersPage() {
           </DialogActions>
         </form>
       </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Delete Customer?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: tokens.textSecondary, mb: 1 }}>
+            Are you sure you want to delete customer <strong>{customerToDelete?.name}</strong>?
+          </Typography>
+          <Typography variant="body2" sx={{ color: tokens.red500, fontWeight: 600 }}>
+            ⚠️ This will completely remove the customer. Note that you can only delete customers who have no active transaction or billing history.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteConfirmOpen(false)} variant="outlined" sx={{ borderRadius: '10px' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => deleteMutation.mutate(customerToDelete.id)}
+            variant="contained"
+            color="error"
+            disabled={deleteMutation.isPending}
+            sx={{ borderRadius: '10px' }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   )
 }

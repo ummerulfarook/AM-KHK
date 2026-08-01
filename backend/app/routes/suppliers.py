@@ -531,3 +531,30 @@ def record_po_payment(po_id: int):
     except Exception as exc:
         db.session.rollback()
         return jsonify({"error": f"Failed to record supplier payment: {exc}"}), 500
+
+
+@suppliers_bp.route("/<int:supplier_id>", methods=["DELETE"])
+@login_required
+@require_roles("owner", "manager")
+def delete_supplier(supplier_id: int):
+    """Delete a supplier if they have no active purchase orders."""
+    supplier = db.session.get(Supplier, supplier_id)
+    if not supplier:
+        return jsonify({"error": "Supplier not found"}), 404
+        
+    # Check if they have purchase orders
+    has_orders = db.session.execute(
+        db.select(PurchaseOrder).where(PurchaseOrder.supplier_id == supplier_id)
+    ).scalars().first()
+    
+    if has_orders:
+        return jsonify({"error": "Cannot delete supplier with active purchase order history."}), 400
+        
+    try:
+        db.session.delete(supplier)
+        db.session.commit()
+        return jsonify({"message": "Supplier deleted successfully"}), 200
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to delete supplier: {exc}"}), 500
+

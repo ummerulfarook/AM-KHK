@@ -737,3 +737,55 @@ def update_sale(sale_id: int):
         db.session.rollback()
         return jsonify({"error": f"Failed to edit invoice: {exc}"}), 500
 
+
+@billing_bp.route("/sale/<int:sale_id>", methods=["DELETE"])
+@login_required
+@require_roles("owner", "manager")
+def delete_sale(sale_id: int):
+    """Delete a sale, restore inventory stock, and reconcile customer balances/credit ledger."""
+    sale = db.session.get(RetailSale, sale_id)
+    if not sale:
+        return jsonify({"error": "Sale not found"}), 404
+        
+    try:
+        # 1. Restore product inventory stock
+        for item in sale.items:
+            if item.product:
+                # Add back the quantity sold
+                item.product.stock = (item.product.stock or 0) + item.quantity
+                
+        # 2. Reconcile customer balances if customer is linked
+        if sale.customer:
+            # We need to deduct the total sale amount from customer's outstanding balance
+            # and add back the amount paid!
+            # Since sale.total was added to the outstanding balance and sale.amount_paid was paid,
+            # the net increase was: sale.total - sale.amount_paid.
+            # So we subtract (sale.total - sale.amount_paid) from customer's outstanding_balance!
+            net_sale_effect = sale.total - sale.amount_paid
+            sale.customer.outstanding_balance = max(0, sale.customer.outstanding_balance - net_sale_effect)
+            sale.customer.opening_balance = sale.customer.outstanding_balance
+            
+            # 3. Delete any CreditLedger records associated with this sale
+            # Find and delete
+            db.session.execute(
+                db.delete(CreditLedger).where(CreditLedger.sale_id == sale_id)
+            )
+            # Find and delete any Payments linked to this sale
+            # First fetch ledger IDs
+            ledgers = db.session.execute(
+                db.select(CreditLedger.id).where(CreditLedger.sale_id == sale_id)
+            ).scalars().all()
+            if ledgers:
+                db.session.execute(
+                    db.delete(Payment).where(Payment.credit_ledger_id.in_(ledgers))
+                )
+
+        # 4. Delete the sale itself (will cascade delete SaleItems)
+        db.session.delete(sale)
+        db.session.commit()
+        return jsonify({"message": "Sale deleted and inventory restored successfully"}), 200
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to delete sale: {exc}"}), 500
+
+

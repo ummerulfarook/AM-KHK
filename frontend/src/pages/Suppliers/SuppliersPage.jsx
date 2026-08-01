@@ -38,6 +38,8 @@ export default function SuppliersPage() {
   const [supSearch, setSupSearch] = useState('')
   const [supDialogOpen, setSupDialogOpen] = useState(false)
   const [editingSupplier, setEditingSupplier] = useState(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [supplierToDelete, setSupplierToDelete] = useState(null)
 
   // Supplier Form state
   const [supName, setSupName] = useState('')
@@ -130,6 +132,18 @@ export default function SuppliersPage() {
     mutationFn: suppliersApi.toggleSupplierActive,
     onSuccess: () => {
       qc.invalidateQueries(['suppliers'])
+    }
+  })
+
+  const deleteSupMutation = useMutation({
+    mutationFn: suppliersApi.deleteSupplier,
+    onSuccess: () => {
+      qc.invalidateQueries(['suppliers'])
+      setDeleteConfirmOpen(false)
+      setSupplierToDelete(null)
+    },
+    onError: (err) => {
+      alert(err?.response?.data?.error || 'Failed to delete supplier')
     }
   })
 
@@ -413,6 +427,21 @@ export default function SuppliersPage() {
                                 </IconButton>
                               </Tooltip>
                             )}
+                            {canModify && (
+                              <Tooltip title="Delete Supplier">
+                                <IconButton
+                                  id={`btn-delete-sup-${sup.id}`}
+                                  size="small"
+                                  color="error"
+                                  onClick={() => {
+                                    setSupplierToDelete(sup)
+                                    setDeleteConfirmOpen(true)
+                                  }}
+                                >
+                                  <DeleteRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </Stack>
                         </TableCell>
                       </TableRow>
@@ -671,6 +700,36 @@ export default function SuppliersPage() {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Delete Supplier?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: tokens.textSecondary, mb: 1 }}>
+            Are you sure you want to delete supplier <strong>{supplierToDelete?.name}</strong>?
+          </Typography>
+          <Typography variant="body2" sx={{ color: tokens.red500, fontWeight: 600 }}>
+            ⚠️ This will completely remove the supplier from your directory. Note that you can only delete suppliers who have no active purchase order history.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeleteConfirmOpen(false)} variant="outlined" sx={{ borderRadius: '10px' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => deleteSupMutation.mutate(supplierToDelete.id)}
+            variant="contained"
+            color="error"
+            disabled={deleteSupMutation.isPending}
+            sx={{ borderRadius: '10px' }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   )

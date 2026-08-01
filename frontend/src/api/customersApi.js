@@ -16,6 +16,9 @@ export const customersApi = {
   /** DELETE /api/customers/:id — Soft-delete/toggle active */
   toggleCustomerActive: (id) => api.delete(`/api/customers/${id}`).then(r => r.data),
 
+  /** DELETE /api/customers/:id — Delete customer */
+  deleteCustomer: (id) => api.delete(`/api/customers/${id}`).then(r => r.data),
+
   /** GET /api/customers/:id/history — Purchase history */
   getCustomerHistory: (id, params = {}) => api.get(`/api/customers/${id}/history`, { params }).then(r => r.data),
 
