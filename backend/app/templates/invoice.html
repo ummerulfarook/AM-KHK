@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Invoice {{ sale.invoice_number }}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      font-size: 13px;
+      color: #0F2419;
+      background: #fff;
+      padding: 0;
+    }
+
+    .page {
+      width: 148mm;
+      min-height: 210mm;
+      padding: 12mm 14mm;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #059669;
+      margin-bottom: 12px;
+    }
+
+    .shop-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0E3A2A;
+      line-height: 1.2;
+    }
+    .shop-sub {
+      font-size: 10px;
+      color: #71837A;
+      margin-top: 3px;
+    }
+
+    .invoice-meta {
+      text-align: right;
+    }
+    .invoice-num {
+      font-size: 15px;
+      font-weight: 700;
+      color: #059669;
+    }
+    .invoice-date {
+      font-size: 10px;
+      color: #71837A;
+      margin-top: 2px;
+    }
+
+    /* ── Customer block ── */
+    .customer-block {
+      background: #EEF5F0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+    }
+    .customer-label {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #71837A;
+      margin-bottom: 3px;
+    }
+    .customer-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #0F2419;
+    }
+    .customer-phone {
+      font-size: 11px;
+      color: #71837A;
+    }
+
+    /* ── Items table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+    thead th {
+      background: #0E3A2A;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 6px 8px;
+      text-align: left;
+    }
+    thead th:last-child { text-align: right; }
+    thead th:nth-child(2),
+    thead th:nth-child(3),
+    thead th:nth-child(4) { text-align: right; }
+
+    tbody td {
+      padding: 6px 8px;
+      font-size: 12px;
+      border-bottom: 1px solid #E2EBE4;
+    }
+    tbody td:nth-child(2),
+    tbody td:nth-child(3),
+    tbody td:nth-child(4) { text-align: right; }
+    tbody td:last-child { text-align: right; font-weight: 600; }
+    tbody tr:last-child td { border-bottom: none; }
+
+    /* ── Totals ── */
+    .totals {
+      margin-left: auto;
+      width: 58%;
+      margin-bottom: 12px;
+    }
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      font-size: 12px;
+    }
+    .totals-row.total {
+      border-top: 2px solid #059669;
+      margin-top: 5px;
+      padding-top: 7px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #0E3A2A;
+    }
+    .totals-label { color: #71837A; }
+
+    /* ── Payment badge ── */
+    .payment-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .payment-label { font-size: 11px; color: #71837A; }
+    .payment-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .payment-cash    { background: #D1FAE5; color: #059669; }
+    .payment-upi     { background: #DBEAFE; color: #3F7FE0; }
+    .payment-bank    { background: #DBEAFE; color: #3F7FE0; }
+    .payment-credit  { background: #FEF3C7; color: #F0940C; }
+
+    /* ── Notes ── */
+    .notes {
+      font-size: 11px;
+      color: #71837A;
+      background: #F4F8F5;
+      border-left: 3px solid #059669;
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      border-top: 1px solid #E2EBE4;
+      padding-top: 10px;
+      text-align: center;
+      color: #71837A;
+      font-size: 10px;
+      line-height: 1.6;
+    }
+    .footer strong { color: #059669; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #059669; padding-bottom: 12px; margin-bottom: 12px;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+      {% if logo_base64 %}
+        <img src="{{ logo_base64 }}" style="max-height: 52px; border-radius: 8px;" alt="AM & KHK Logo" />
+      {% endif %}
+      <div>
+        <div class="shop-name" style="font-size: 18px; font-weight: 700; color: #0E3A2A;">AM & KHK Vegetable Merchants</div>
+        <div class="shop-sub" style="font-size: 10px; color: #71837A; margin-top: 3px; line-height: 1.4;">
+          NH-17, CHERANALOR, ERNAKULAM<br>
+          Ph: +91 9846089118, +91 9895110194, +91 7012794021
+        </div>
+      </div>
+    </div>
+    <div class="invoice-meta">
+      <div class="invoice-num">{{ sale.invoice_number }}</div>
+      <div class="invoice-date">
+        {{ sale.created_at.strftime('%d %b %Y, %I:%M %p') }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer -->
+  <div class="customer-block">
+    <div class="customer-label">Bill To</div>
+    <div class="customer-name">
+      {% if sale.customer %}
+        {{ sale.customer.name }}
+      {% elif sale.billing_customer_name %}
+        {{ sale.billing_customer_name }}
+      {% else %}
+        Walk-in Customer
+      {% endif %}
+    </div>
+    {% set phone = sale.customer.phone if (sale.customer and sale.customer.phone) else sale.billing_customer_phone %}
+    {% if phone %}
+      <div class="customer-phone">{{ phone[:4] }}*****</div>
+    {% endif %}
+  </div>
+
+  <!-- Items table -->
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align: left; width: 22%;">Rate</th>
+        <th style="text-align: left; width: 43%;">Item</th>
+        <th style="text-align: right; width: 15%;">Qty</th>
+        <th style="text-align: right; width: 20%;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in sale.items %}
+      <tr>
+        <td style="text-align: left; white-space: nowrap;">₹{{ "%.2f"|format(item.unit_price / 100) }}</td>
+        <td style="text-align: left;">
+          <strong>{{ item.product.name if item.product else '—' }}</strong>
+          {% if item.product and item.product.unit %}
+            <span style="font-size:10px;color:#71837A;">({{ item.product.unit }})</span>
+          {% endif %}
+        </td>
+        <td style="text-align: right;">{{ item.quantity }}</td>
+        <td style="text-align: right; font-weight: 600; white-space: nowrap;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals">
+    <div class="totals-row">
+      <span class="totals-label">Subtotal</span>
+      <span>₹{{ "%.2f"|format(sale.subtotal / 100) }}</span>
+    </div>
+    {% if sale.discount > 0 %}
+    <div class="totals-row">
+      <span class="totals-label">Discount</span>
+      <span style="color:#E5484D;">−₹{{ "%.2f"|format(sale.discount / 100) }}</span>
+    </div>
+    {% endif %}
+    {% if sale.tax > 0 %}
+    <div class="totals-row">
+      <span class="totals-label">Tax</span>
+      <span>₹{{ "%.2f"|format(sale.tax / 100) }}</span>
+    </div>
+    {% endif %}
+    <div class="totals-row total">
+      <span>Total</span>
+      <span>₹{{ "%.2f"|format(sale.total / 100) }}</span>
+    </div>
+    {% if sale.customer %}
+    <div class="totals-row" style="border-top: 1px dashed #E2EBE4; margin-top: 5px; padding-top: 5px;">
+      <span class="totals-label">Prev. Due</span>
+      <span>₹{{ "%.2f"|format(sale.previous_balance / 100) }}</span>
+    </div>
+    <div class="totals-row">
+      <span class="totals-label">Received</span>
+      <span>₹{{ "%.2f"|format(sale.amount_paid / 100) }}</span>
+    </div>
+    {% set bill_left = sale.total - sale.amount_paid if sale.total > sale.amount_paid else 0 %}
+    <div class="totals-row">
+      <span class="totals-label">Bill Left</span>
+      <span>₹{{ "%.2f"|format(bill_left / 100) }}</span>
+    </div>
+    <div class="totals-row">
+      <span class="totals-label">Total Due</span>
+      <span style="font-weight: 700; color: #E5484D;">₹{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+
+
+  <!-- Notes -->
+  {% if sale.notes %}
+  <div class="notes">{{ sale.notes }}</div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="footer">
+    <strong>Thank you for your business!</strong><br>
+    Goods once sold will not be taken back without prior arrangement.<br>
+    For queries: {{ settings.get('shop_phone', '') }}
+  </div>
+
+</div>
+</body>
+</html>
