@@ -537,31 +537,36 @@ def record_po_payment(po_id: int):
 @login_required
 @require_roles("owner", "manager")
 def delete_supplier(supplier_id: int):
-    """Delete a supplier if they have no active purchase orders or linked products."""
+    """Delete a supplier and all their associated purchase orders, and unlink products."""
     supplier = db.session.get(Supplier, supplier_id)
     if not supplier:
         return jsonify({"error": "Supplier not found"}), 404
         
-    # Check if they have purchase orders
-    has_orders = db.session.execute(
-        db.select(PurchaseOrder).where(PurchaseOrder.supplier_id == supplier_id)
-    ).scalars().first()
-    
-    # Check if they have linked products
-    has_products = db.session.execute(
-        db.select(Product).where(Product.supplier_id == supplier_id)
-    ).scalars().first()
-    
-    if has_orders:
-        return jsonify({"error": "Cannot delete supplier with active purchase order history."}), 400
-        
-    if has_products:
-        return jsonify({"error": "Cannot delete supplier with linked products. Unlink or delete the products first."}), 400
-        
     try:
+        # 1. Delete PurchaseOrders and their items
+        po_ids = db.session.execute(
+            db.select(PurchaseOrder.id).where(PurchaseOrder.supplier_id == supplier_id)
+        ).scalars().all()
+        for poid in po_ids:
+            db.session.execute(
+                db.delete(PurchaseOrderItem).where(PurchaseOrderItem.purchase_order_id == poid)
+            )
+        if po_ids:
+            db.session.execute(
+                db.delete(PurchaseOrder).where(PurchaseOrder.id.in_(po_ids))
+            )
+            
+        # 2. Unlink supplier from products (set supplier_id = null)
+        db.session.execute(
+            db.update(Product)
+            .where(Product.supplier_id == supplier_id)
+            .values(supplier_id=None)
+        )
+        
+        # 3. Delete the supplier profile
         db.session.delete(supplier)
         db.session.commit()
-        return jsonify({"message": "Supplier deleted successfully"}), 200
+        return jsonify({"message": "Supplier and all associated purchase order history deleted successfully"}), 200
     except Exception as exc:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete supplier: {exc}"}), 500

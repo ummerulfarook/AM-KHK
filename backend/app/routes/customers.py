@@ -8,8 +8,8 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, or_
 from app import db
 from app.models.customer import Customer
-from app.models.sale import RetailSale
-from app.models.order import WholesaleOrder
+from app.models.sale import RetailSale, SaleItem
+from app.models.order import WholesaleOrder, WholesaleOrderItem
 from app.models.credit import CreditLedger, Payment
 from app.utils.role_guard import require_roles
 
@@ -506,39 +506,56 @@ def clear_customer_dues(cust_id: int):
 @login_required
 @require_roles("owner", "manager")
 def delete_customer(customer_id: int):
-    """Delete a customer if they have no active transactions or history."""
+    """Delete a customer and all their associated transaction history (sales, orders, ledgers)."""
     customer = db.session.get(Customer, customer_id)
     if not customer:
         return jsonify({"error": "Customer not found"}), 404
         
-    # Check if they have sales
-    has_sales = db.session.execute(
-        db.select(RetailSale).where(RetailSale.customer_id == customer_id)
-    ).scalars().first()
-    
-    # Check if they have credit entries (excluding opening balance)
-    has_credit = db.session.execute(
-        db.select(CreditLedger)
-        .where(CreditLedger.customer_id == customer_id)
-        .where(CreditLedger.invoice_ref != "OPENING-BAL")
-    ).scalars().first()
-    
-    # Check if they have wholesale orders
-    has_wholesale = db.session.execute(
-        db.select(WholesaleOrder).where(WholesaleOrder.customer_id == customer_id)
-    ).scalars().first()
-    
-    if has_sales or has_credit or has_wholesale:
-        return jsonify({"error": "Cannot delete customer with active sales, wholesale orders, or credit transaction history."}), 400
-        
     try:
-        # Delete opening balance credit ledger entries
+        # 1. Delete all payments linked to credit ledgers of this customer
+        ledger_ids = db.session.execute(
+            db.select(CreditLedger.id).where(CreditLedger.customer_id == customer_id)
+        ).scalars().all()
+        if ledger_ids:
+            db.session.execute(
+                db.delete(Payment).where(Payment.credit_ledger_id.in_(ledger_ids))
+            )
+            
+        # 2. Delete all credit ledger entries of this customer
         db.session.execute(
             db.delete(CreditLedger).where(CreditLedger.customer_id == customer_id)
         )
+        
+        # 3. Delete wholesale orders (and their items)
+        order_ids = db.session.execute(
+            db.select(WholesaleOrder.id).where(WholesaleOrder.customer_id == customer_id)
+        ).scalars().all()
+        for oid in order_ids:
+            db.session.execute(
+                db.delete(WholesaleOrderItem).where(WholesaleOrderItem.order_id == oid)
+            )
+        if order_ids:
+            db.session.execute(
+                db.delete(WholesaleOrder).where(WholesaleOrder.id.in_(order_ids))
+            )
+            
+        # 4. Delete retail sales (and their items)
+        sale_ids = db.session.execute(
+            db.select(RetailSale.id).where(RetailSale.customer_id == customer_id)
+        ).scalars().all()
+        for sid in sale_ids:
+            db.session.execute(
+                db.delete(SaleItem).where(SaleItem.sale_id == sid)
+            )
+        if sale_ids:
+            db.session.execute(
+                db.delete(RetailSale).where(RetailSale.id.in_(sale_ids))
+            )
+            
+        # 5. Delete the customer profile
         db.session.delete(customer)
         db.session.commit()
-        return jsonify({"message": "Customer deleted successfully"}), 200
+        return jsonify({"message": "Customer and all associated transaction history deleted successfully"}), 200
     except Exception as exc:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete customer: {exc}"}), 500
