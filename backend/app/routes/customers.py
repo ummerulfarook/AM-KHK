@@ -516,15 +516,21 @@ def delete_customer(customer_id: int):
         db.select(RetailSale).where(RetailSale.customer_id == customer_id)
     ).scalars().first()
     
-    # Check if they have credit entries
+    # Check if they have credit entries (excluding opening balance)
     has_credit = db.session.execute(
-        db.select(CreditLedger).where(CreditLedger.customer_id == customer_id)
+        db.select(CreditLedger)
+        .where(CreditLedger.customer_id == customer_id)
+        .where(CreditLedger.invoice_ref != "OPENING-BAL")
     ).scalars().first()
     
     if has_sales or has_credit:
         return jsonify({"error": "Cannot delete customer with active sales or credit transaction history."}), 400
         
     try:
+        # Delete opening balance credit ledger entries
+        db.session.execute(
+            db.delete(CreditLedger).where(CreditLedger.customer_id == customer_id)
+        )
         db.session.delete(customer)
         db.session.commit()
         return jsonify({"message": "Customer deleted successfully"}), 200
