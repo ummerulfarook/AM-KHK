@@ -22,7 +22,7 @@ class Supplier(db.Model):
     )
 
     products = relationship("Product", back_populates="supplier")
-    purchase_orders = relationship("PurchaseOrder", back_populates="supplier")
+    purchase_orders = relationship("PurchaseOrder", back_populates="supplier", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
