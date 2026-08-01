@@ -10,8 +10,8 @@ export const suppliersApi = {
   /** PUT /api/suppliers/:id — Update supplier details */
   updateSupplier: (id, data) => api.put(`/api/suppliers/${id}`, data).then(r => r.data),
 
-  /** DELETE /api/suppliers/:id — Toggle active/inactive */
-  toggleSupplierActive: (id) => api.delete(`/api/suppliers/${id}`).then(r => r.data),
+  /** POST /api/suppliers/:id/toggle-active — Toggle active/inactive */
+  toggleSupplierActive: (id) => api.post(`/api/suppliers/${id}/toggle-active`).then(r => r.data),
 
   /** DELETE /api/suppliers/:id — Delete supplier */
   deleteSupplier: (id) => api.delete(`/api/suppliers/${id}`).then(r => r.data),

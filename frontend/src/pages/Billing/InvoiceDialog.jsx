@@ -169,9 +169,19 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
                 onClick={handlePrint}
                 disabled={printing}
                 fullWidth
-                sx={{ borderRadius: '10px' }}
+                sx={{ borderRadius: '10px', fontSize: '0.78rem' }}
               >
-                Print Receipt
+                Thermal Print
+              </Button>
+              <Button
+                id="btn-invoice-laser-print"
+                variant="outlined"
+                startIcon={<PrintRoundedIcon />}
+                onClick={() => window.open(`/api/billing/${sale.id}/preview?print=true`, '_blank')}
+                fullWidth
+                sx={{ borderRadius: '10px', fontSize: '0.78rem' }}
+              >
+                Laser Print
               </Button>
               <Button
                 id="btn-invoice-pdf"
@@ -180,9 +190,9 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
                 onClick={handleDownload}
                 disabled={downloading}
                 fullWidth
-                sx={{ borderRadius: '10px' }}
+                sx={{ borderRadius: '10px', fontSize: '0.78rem' }}
               >
-                Download PDF
+                PDF
               </Button>
             </Box>
 

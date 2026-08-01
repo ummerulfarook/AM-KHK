@@ -376,6 +376,11 @@ def get_invoice_preview(sale_id: int):
         return jsonify({"error": "Sale not found"}), 404
     settings = _get_settings()
     html = render_invoice_html(sale, settings)
+    
+    # If print query param is present, inject auto-print script
+    if request.args.get("print") == "true":
+        html = html.replace("</body>", "<script>window.onload = function() { window.print(); }</script></body>")
+        
     return Response(html, mimetype="text/html")
 
 
@@ -765,12 +770,7 @@ def delete_sale(sale_id: int):
             sale.customer.outstanding_balance = max(0, sale.customer.outstanding_balance - net_sale_effect)
             sale.customer.opening_balance = sale.customer.outstanding_balance
             
-            # 3. Delete any CreditLedger records associated with this sale
-            # Find and delete
-            db.session.execute(
-                db.delete(CreditLedger).where(CreditLedger.sale_id == sale_id)
-            )
-            # Find and delete any Payments linked to this sale
+            # 3. Delete associated payments first to avoid foreign key violations
             # First fetch ledger IDs
             ledgers = db.session.execute(
                 db.select(CreditLedger.id).where(CreditLedger.sale_id == sale_id)
@@ -779,8 +779,13 @@ def delete_sale(sale_id: int):
                 db.session.execute(
                     db.delete(Payment).where(Payment.credit_ledger_id.in_(ledgers))
                 )
+            
+            # 4. Now delete CreditLedger entries
+            db.session.execute(
+                db.delete(CreditLedger).where(CreditLedger.sale_id == sale_id)
+            )
 
-        # 4. Delete the sale itself (will cascade delete SaleItems)
+        # 5. Delete the sale itself (will cascade delete SaleItems)
         db.session.delete(sale)
         db.session.commit()
         return jsonify({"message": "Sale deleted and inventory restored successfully"}), 200

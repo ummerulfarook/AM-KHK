@@ -14,6 +14,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import { billingApi } from '../../api/billingApi'
 import { inventoryApi } from '../../api/inventoryApi'
 import StatusBadge from '../../components/common/StatusBadge'
@@ -275,6 +276,17 @@ export default function SalesHistoryPage() {
                           sx={{ ml: 0.5 }}
                         >
                           {printingId === sale.id ? <CircularProgress size={18} /> : <PrintRoundedIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Laser Print (A4/A5)">
+                        <IconButton
+                          id={`btn-laser-print-${sale.id}`}
+                          size="small"
+                          color="info"
+                          onClick={() => window.open(`/api/billing/${sale.id}/preview?print=true`, '_blank')}
+                          sx={{ ml: 0.5 }}
+                        >
+                          <PictureAsPdfRoundedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete Invoice">

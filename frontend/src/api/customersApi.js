@@ -13,8 +13,8 @@ export const customersApi = {
   /** PUT /api/customers/:id — Update customer */
   updateCustomer: (id, data) => api.put(`/api/customers/${id}`, data).then(r => r.data),
 
-  /** DELETE /api/customers/:id — Soft-delete/toggle active */
-  toggleCustomerActive: (id) => api.delete(`/api/customers/${id}`).then(r => r.data),
+  /** POST /api/customers/:id/toggle-active — Toggle active/inactive */
+  toggleCustomerActive: (id) => api.post(`/api/customers/${id}/toggle-active`).then(r => r.data),
 
   /** DELETE /api/customers/:id — Delete customer */
   deleteCustomer: (id) => api.delete(`/api/customers/${id}`).then(r => r.data),

@@ -127,11 +127,11 @@ def update_supplier(supplier_id: int):
     return jsonify({"data": supplier.to_dict(), "message": "Supplier updated successfully"}), 200
 
 
-@suppliers_bp.route("/<int:supplier_id>", methods=["DELETE"])
+@suppliers_bp.route("/<int:supplier_id>/toggle-active", methods=["POST"])
 @login_required
 @require_roles("owner", "manager")
 def toggle_supplier_active(supplier_id: int):
-    """Toggle supplier active/inactive state (soft deactivation)."""
+    """Toggle supplier active/inactive state."""
     supplier = db.session.get(Supplier, supplier_id)
     if not supplier:
         return jsonify({"error": "Supplier not found"}), 404

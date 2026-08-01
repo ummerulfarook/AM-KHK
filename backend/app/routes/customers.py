@@ -191,11 +191,11 @@ def update_customer(cust_id: int):
     return jsonify({"data": customer.to_dict(), "message": "Customer updated successfully"}), 200
 
 
-@customers_bp.route("/<int:cust_id>", methods=["DELETE"])
+@customers_bp.route("/<int:cust_id>/toggle-active", methods=["POST"])
 @login_required
 @require_roles("owner", "manager")
 def toggle_customer_active(cust_id: int):
-    """Toggle customer active/inactive status (soft-delete)."""
+    """Toggle customer active/inactive status."""
     customer = db.session.get(Customer, cust_id)
     if not customer:
         return jsonify({"error": "Customer not found"}), 404
