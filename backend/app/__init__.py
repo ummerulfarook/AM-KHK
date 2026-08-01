@@ -30,7 +30,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     app = Flask(
         __name__,
         static_folder=static_folder if os.path.isdir(static_folder) else None,
-        static_url_path="/",
+        static_url_path="/static",
     )
 
     # ── Configuration ─────────────────────────────────────────────────────────
