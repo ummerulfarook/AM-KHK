@@ -757,7 +757,7 @@ def delete_sale(sale_id: int):
         for item in sale.items:
             if item.product:
                 # Add back the quantity sold
-                item.product.stock = (item.product.stock or 0) + item.quantity
+                item.product.current_stock = (item.product.current_stock or 0.0) + item.quantity
                 
         # 2. Reconcile customer balances if customer is linked
         if sale.customer:
