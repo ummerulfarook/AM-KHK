@@ -29,7 +29,7 @@ class Customer(db.Model):
 
     sales = relationship("RetailSale", back_populates="customer")
     wholesale_orders = relationship("WholesaleOrder", back_populates="customer")
-    credit_entries = relationship("CreditLedger", back_populates="customer")
+    credit_entries = relationship("CreditLedger", back_populates="customer", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {

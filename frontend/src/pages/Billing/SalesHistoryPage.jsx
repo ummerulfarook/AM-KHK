@@ -283,7 +283,24 @@ export default function SalesHistoryPage() {
                           id={`btn-laser-print-${sale.id}`}
                           size="small"
                           color="info"
-                          onClick={() => window.open(`/api/billing/${sale.id}/preview?print=true`, '_blank')}
+                          onClick={() => {
+                            const iframe = document.createElement('iframe');
+                            iframe.style.position = 'fixed';
+                            iframe.style.right = '0';
+                            iframe.style.bottom = '0';
+                            iframe.style.width = '0';
+                            iframe.style.height = '0';
+                            iframe.style.border = '0';
+                            iframe.src = `/api/billing/${sale.id}/preview?print=true`;
+                            document.body.appendChild(iframe);
+                            iframe.onload = () => {
+                              iframe.contentWindow.focus();
+                              setTimeout(() => {
+                                iframe.contentWindow.print();
+                                document.body.removeChild(iframe);
+                              }, 300);
+                            };
+                          }}
                           sx={{ ml: 0.5 }}
                         >
                           <PictureAsPdfRoundedIcon fontSize="small" />
