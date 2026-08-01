@@ -523,8 +523,13 @@ def delete_customer(customer_id: int):
         .where(CreditLedger.invoice_ref != "OPENING-BAL")
     ).scalars().first()
     
-    if has_sales or has_credit:
-        return jsonify({"error": "Cannot delete customer with active sales or credit transaction history."}), 400
+    # Check if they have wholesale orders
+    has_wholesale = db.session.execute(
+        db.select(WholesaleOrder).where(WholesaleOrder.customer_id == customer_id)
+    ).scalars().first()
+    
+    if has_sales or has_credit or has_wholesale:
+        return jsonify({"error": "Cannot delete customer with active sales, wholesale orders, or credit transaction history."}), 400
         
     try:
         # Delete opening balance credit ledger entries

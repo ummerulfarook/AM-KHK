@@ -537,7 +537,7 @@ def record_po_payment(po_id: int):
 @login_required
 @require_roles("owner", "manager")
 def delete_supplier(supplier_id: int):
-    """Delete a supplier if they have no active purchase orders."""
+    """Delete a supplier if they have no active purchase orders or linked products."""
     supplier = db.session.get(Supplier, supplier_id)
     if not supplier:
         return jsonify({"error": "Supplier not found"}), 404
@@ -547,8 +547,16 @@ def delete_supplier(supplier_id: int):
         db.select(PurchaseOrder).where(PurchaseOrder.supplier_id == supplier_id)
     ).scalars().first()
     
+    # Check if they have linked products
+    has_products = db.session.execute(
+        db.select(Product).where(Product.supplier_id == supplier_id)
+    ).scalars().first()
+    
     if has_orders:
         return jsonify({"error": "Cannot delete supplier with active purchase order history."}), 400
+        
+    if has_products:
+        return jsonify({"error": "Cannot delete supplier with linked products. Unlink or delete the products first."}), 400
         
     try:
         db.session.delete(supplier)
