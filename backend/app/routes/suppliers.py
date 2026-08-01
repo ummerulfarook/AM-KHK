@@ -487,9 +487,8 @@ def record_po_payment(po_id: int):
 
     data = request.get_json(silent=True) or {}
     payment_status = data.get("paymentStatus")
-    if payment_status not in ("pending", "partial", "paid"):
-        return jsonify({"error": "Invalid paymentStatus"}), 422
-
+    amount_paid_rs = data.get("amountPaid")
+    
     payment_method = data.get("paymentMethod")
     if payment_method and payment_method not in ("cash", "upi", "bank", "credit"):
         return jsonify({"error": "Invalid paymentMethod"}), 422
@@ -497,13 +496,32 @@ def record_po_payment(po_id: int):
     notes = (data.get("notes") or "").strip()
 
     try:
-        po.payment_status = payment_status
+        if amount_paid_rs is not None:
+            try:
+                amount_paid_paise = _rupees_to_paise(float(amount_paid_rs))
+            except (ValueError, TypeError):
+                return jsonify({"error": "Invalid amountPaid value"}), 422
+                
+            po.amount_paid = amount_paid_paise
+            if amount_paid_paise >= po.total_amount:
+                po.payment_status = "paid"
+            elif amount_paid_paise > 0:
+                po.payment_status = "partial"
+            else:
+                po.payment_status = "pending"
+        else:
+            if payment_status:
+                if payment_status not in ("pending", "partial", "paid"):
+                    return jsonify({"error": "Invalid paymentStatus"}), 422
+                po.payment_status = payment_status
+
         if payment_method:
             po.payment_method = payment_method
         
         # Log to notes as well for auditing visibility
         method_str = f" via {payment_method.upper()}" if payment_method else ""
-        log_line = f"Logged payment status: {payment_status.upper()}{method_str}"
+        amt_str = f" | Amount: Rs{po.amount_paid/100:.2f}" if po.amount_paid > 0 else ""
+        log_line = f"Logged payment status: {po.payment_status.upper()}{method_str}{amt_str}"
         if notes:
             log_line += f" | Notes: {notes}"
         po.notes = f"{po.notes or ''}\n[PAYMENT LOG - {datetime.now().strftime('%Y-%m-%d')}] {log_line}".strip()

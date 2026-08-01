@@ -102,6 +102,7 @@ class PurchaseOrder(db.Model):
         nullable=False, default="pending",
     )
     payment_method: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    amount_paid: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     notes: Mapped[str | None] = mapped_column(Text)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
@@ -125,6 +126,7 @@ class PurchaseOrder(db.Model):
             "actualDelivery": self.actual_delivery.isoformat() if self.actual_delivery else None,
             "status": self.status, "paymentStatus": self.payment_status,
             "paymentMethod": self.payment_method,
+            "amountPaid": self.amount_paid,
             "totalAmount": self.total_amount, "notes": self.notes,
             "createdAt": self.created_at.isoformat(),
             "items": [i.to_dict() for i in self.items],

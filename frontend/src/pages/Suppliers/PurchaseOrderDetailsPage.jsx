@@ -34,6 +34,7 @@ export default function PurchaseOrderDetailsPage() {
   const [payDialogOpen, setPayDialogOpen] = useState(false)
   const [payStatus, setPayStatus] = useState('pending')
   const [payMethod, setPayMethod] = useState('cash')
+  const [payAmount, setPayAmount] = useState('')
   const [payNotes, setPayNotes] = useState('')
 
   // Role permissions
@@ -96,6 +97,7 @@ export default function PurchaseOrderDetailsPage() {
   const handleOpenPay = () => {
     setPayStatus(po.paymentStatus)
     setPayMethod(po.paymentMethod || 'cash')
+    setPayAmount(po.amountPaid ? (po.amountPaid / 100).toString() : '')
     setPayNotes('')
     setPayDialogOpen(true)
   }
@@ -104,6 +106,7 @@ export default function PurchaseOrderDetailsPage() {
     paymentMutation.mutate({
       paymentStatus: payStatus,
       paymentMethod: payMethod,
+      amountPaid: payAmount ? parseFloat(payAmount) : 0,
       notes: payNotes.trim()
     })
   }
@@ -208,6 +211,12 @@ export default function PurchaseOrderDetailsPage() {
                   Payment Method: <strong style={{ textTransform: 'uppercase' }}>{po.paymentMethod}</strong>
                 </Typography>
               )}
+              <Typography sx={{ fontSize: '0.8rem', color: tokens.textSecondary, mt: 0.5 }}>
+                Amount Paid: <strong>{fmtRupees(po.amountPaid || 0)}</strong>
+              </Typography>
+              <Typography sx={{ fontSize: '0.8rem', color: tokens.textSecondary }}>
+                Remaining Dues: <strong style={{ color: (po.totalAmount - (po.amountPaid || 0)) > 0 ? tokens.amber500 : tokens.emerald600 }}>{fmtRupees(po.totalAmount - (po.amountPaid || 0))}</strong>
+              </Typography>
               {po.expectedDelivery && (
                 <Typography sx={{ fontSize: '0.8rem', color: tokens.textSecondary, mt: 0.5 }}>
                   Expected Delivery: <strong>{new Date(po.expectedDelivery).toLocaleDateString('en-IN')}</strong>
@@ -360,6 +369,18 @@ export default function PurchaseOrderDetailsPage() {
                 <MenuItem value="bank">Bank Transfer</MenuItem>
               </Select>
             </FormControl>
+
+            <TextField
+              id="po-pay-amount"
+              label="Amount Paid (₹)"
+              type="number"
+              fullWidth
+              size="small"
+              value={payAmount}
+              onChange={e => setPayAmount(e.target.value)}
+              placeholder="e.g. 5000"
+              helperText={`Total PO Cost is ${fmtRupees(po.totalAmount)}`}
+            />
 
             <TextField
               id="po-pay-notes"
