@@ -47,6 +47,13 @@ export default function AppShell() {
           'nav, header, .MuiAppBar-root, button, .no-print, .MuiTabs-root, .MuiPagination-root': {
             display: 'none !important',
           },
+          '*': {
+            color: '#000000 !important',
+            borderColor: '#000000 !important',
+            opacity: '1 !important',
+            boxShadow: 'none !important',
+            textShadow: 'none !important',
+          },
           '.print-main': {
             marginLeft: '0 !important',
             padding: '0 !important',
