@@ -377,9 +377,23 @@ def get_invoice_preview(sale_id: int):
     settings = _get_settings()
     html = render_invoice_html(sale, settings)
     
-    # If print query param is present, inject auto-print script
+    # If print query param is present, inject auto-print script with postMessage signaling
     if request.args.get("print") == "true":
-        html = html.replace("</body>", "<script>window.onload = function() { window.print(); }</script></body>")
+        print_script = """
+        <script>
+            window.onload = function() {
+                setTimeout(function() {
+                    window.print();
+                    try {
+                        if (window.parent && window.parent !== window) {
+                            window.parent.postMessage({ type: 'INVOICE_PRINT_DONE' }, '*');
+                        }
+                    } catch (e) {}
+                }, 250);
+            };
+        </script>
+        """
+        html = html.replace("</body>", f"{print_script}</body>")
         
     return Response(html, mimetype="text/html")
 

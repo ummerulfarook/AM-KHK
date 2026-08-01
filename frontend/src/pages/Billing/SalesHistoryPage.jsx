@@ -284,7 +284,12 @@ export default function SalesHistoryPage() {
                           size="small"
                           color="info"
                           onClick={() => {
+                            const iframeId = `print-iframe-${sale.id}`;
+                            const existing = document.getElementById(iframeId);
+                            if (existing) document.body.removeChild(existing);
+                            
                             const iframe = document.createElement('iframe');
+                            iframe.id = iframeId;
                             iframe.style.position = 'fixed';
                             iframe.style.right = '0';
                             iframe.style.bottom = '0';
@@ -292,14 +297,16 @@ export default function SalesHistoryPage() {
                             iframe.style.height = '0';
                             iframe.style.border = '0';
                             iframe.src = `/api/billing/${sale.id}/preview?print=true`;
-                            document.body.appendChild(iframe);
-                            iframe.onload = () => {
-                              iframe.contentWindow.focus();
-                              setTimeout(() => {
-                                iframe.contentWindow.print();
-                                document.body.removeChild(iframe);
-                              }, 300);
+                            
+                            const handleMsg = (e) => {
+                              if (e.data && e.data.type === 'INVOICE_PRINT_DONE') {
+                                window.removeEventListener('message', handleMsg);
+                                const el = document.getElementById(iframeId);
+                                if (el) document.body.removeChild(el);
+                              }
                             };
+                            window.addEventListener('message', handleMsg);
+                            document.body.appendChild(iframe);
                           }}
                           sx={{ ml: 0.5 }}
                         >
