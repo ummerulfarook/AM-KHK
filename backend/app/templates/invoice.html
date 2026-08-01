@@ -191,6 +191,17 @@
       font-weight: 500;
     }
     .footer strong { color: #0E3A2A; font-weight: 700; }
+
+    @media print {
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      .page {
+        margin: 0 !important;
+        padding-left: 0 !important;
+      }
+    }
   </style>
 </head>
 <body>

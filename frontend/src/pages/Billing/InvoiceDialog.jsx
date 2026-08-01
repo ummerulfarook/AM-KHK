@@ -9,6 +9,8 @@ import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import AddShoppingCartRoundedIcon from '@mui/icons-material/AddShoppingCartRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import axios from 'axios'
+import api from '../../api/authApi'
 import { billingApi } from '../../api/billingApi'
 import StatusBadge from '../../components/common/StatusBadge'
 import { tokens } from '../../theme/theme'
@@ -57,17 +59,61 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
     }
   }
 
-  const whatsappText = encodeURIComponent(
-    `Dear ${sale.customerName || 'Customer'},\n\n` +
-    `Your invoice *${sale.invoiceNumber}* has been generated.\n` +
-    `Amount: *${fmt(sale.total)}*\n` +
-    `Payment: ${(sale.paymentMethod || '').toUpperCase()}\n\n` +
-    `Thank you for shopping at AM & KHK Vegetable Merchants!`
-  )
-  const whatsappPhone = sale.customerPhone ? sale.customerPhone.replace(/\D/g, '') : ''
-  const whatsappUrl = whatsappPhone
-    ? `https://wa.me/91${whatsappPhone}?text=${whatsappText}`
-    : `https://wa.me/?text=${whatsappText}`
+  const handleWhatsAppSend = async () => {
+    setDownloading(true)
+    try {
+      // 1. Generate & download the PDF Blob from the backend
+      const response = await api.get(`/api/billing/${sale.id}/pdf`, { responseType: 'blob' })
+      const pdfBlob = response.data
+
+      // 2. Upload to file.io
+      const formData = new FormData()
+      formData.append('file', pdfBlob, `${sale.invoiceNumber || sale.id}.pdf`)
+      
+      const uploadRes = await axios.post('https://file.io', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      const downloadUrl = uploadRes.data.link
+
+      // 3. Generate WhatsApp text with download link
+      const text = encodeURIComponent(
+        `Dear ${sale.customerName || 'Customer'},\n\n` +
+        `Your invoice *${sale.invoiceNumber}* has been generated.\n` +
+        `Total Amount: *${fmt(sale.total)}*\n` +
+        `Click here to download your PDF Invoice:\n${downloadUrl}\n\n` +
+        `Thank you for shopping at AM & KHK Vegetable Merchants!`
+      )
+      const phone = sale.customerPhone ? sale.customerPhone.replace(/\D/g, '') : ''
+      const url = phone
+        ? `https://wa.me/91${phone}?text=${text}`
+        : `https://wa.me/?text=${text}`
+
+      window.open(url, '_blank')
+      showToast('WhatsApp link with PDF generated!')
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to upload PDF, sending text details instead', 'warning')
+      
+      // Fallback
+      const text = encodeURIComponent(
+        `Dear ${sale.customerName || 'Customer'},\n\n` +
+        `Your invoice *${sale.invoiceNumber}* has been generated.\n` +
+        `Amount: *${fmt(sale.total)}*\n` +
+        `Payment: ${(sale.paymentMethod || '').toUpperCase()}\n\n` +
+        `Thank you for shopping at AM & KHK Vegetable Merchants!`
+      )
+      const phone = sale.customerPhone ? sale.customerPhone.replace(/\D/g, '') : ''
+      const url = phone
+        ? `https://wa.me/91${phone}?text=${text}`
+        : `https://wa.me/?text=${text}`
+      window.open(url, '_blank')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <>
@@ -223,10 +269,9 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
             <Button
               id="btn-invoice-whatsapp"
               variant="outlined"
-              startIcon={<WhatsAppIcon />}
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              startIcon={downloading ? <CircularProgress size={14} /> : <WhatsAppIcon />}
+              onClick={handleWhatsAppSend}
+              disabled={downloading}
               fullWidth
               sx={{
                 borderRadius: '10px',
