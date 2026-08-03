@@ -20,6 +20,8 @@
       width: 98mm;
       padding: 8mm 6mm;
       margin: 0;
+      border-right: 1.5px dashed #0E3A2A;
+      min-height: 140mm;
     }
 
     /* ── Header ── */
@@ -209,24 +211,25 @@
 
   <!-- Header -->
   <div class="header" style="border-bottom: 2.5px solid #059669; padding-bottom: 8px; margin-bottom: 12px;">
-    <!-- Row 1: Logo, Shop Name & Invoice Details -->
-    <div style="display: flex; align-items: center; justify-content: space-between;">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        {% if logo_base64 %}
-          <img src="{{ logo_base64 }}" style="max-height: 38px; border-radius: 6px;" alt="AM & KHK Logo" />
-        {% endif %}
-        <div class="shop-name" style="font-size: 14.5px; font-weight: 800; color: #0E3A2A; text-transform: uppercase; white-space: nowrap;">
-          AM & KHK Vegetable Merchants
-        </div>
-      </div>
-      <div style="text-align: right; font-weight: 700; color: #0E3A2A; font-size: 12.5px; white-space: nowrap;">
-        NO: {{ sale.invoice_number }} &nbsp;|&nbsp; {{ formatted_date }}
+    <!-- Row 1: Logo & Shop Name -->
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+      {% if logo_base64 %}
+        <img src="{{ logo_base64 }}" style="max-height: 44px; border-radius: 6px;" alt="AM & KHK Logo" />
+      {% endif %}
+      <div class="shop-name" style="font-size: 16.5px; font-weight: 800; color: #0E3A2A; text-transform: uppercase; letter-spacing: 0.2px;">
+        AM & KHK Vegetable Merchants
       </div>
     </div>
+    
     <!-- Row 2: Address & Phone -->
-    <div style="margin-top: 5px; display: flex; justify-content: space-between; font-size: 9.5px; color: #3a4e44; font-weight: 600; border-top: 1px dashed #c2d1c7; padding-top: 4px;">
-      <div>NH-17, CHERANALLUR, ERNAKULAM</div>
-      <div>Ph: +91 9846089118, 9895110194, 7012794021</div>
+    <div style="font-size: 9.5px; color: #3a4e44; font-weight: 600; line-height: 1.3; margin-bottom: 6px;">
+      NH-17, CHERANALLUR, ERNAKULAM &nbsp;|&nbsp; Ph: 9846089118, 9895110194, 7012794021
+    </div>
+
+    <!-- Row 3: Invoice Info -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #c2d1c7; padding-top: 5px; font-size: 12px; font-weight: 800; color: #0E3A2A;">
+      <div>INVOICE NO: {{ sale.invoice_number }}</div>
+      <div>DATE: {{ formatted_date }}</div>
     </div>
   </div>
 

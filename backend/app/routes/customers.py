@@ -248,7 +248,7 @@ def get_customer_history(cust_id: int):
         if rs.payment_method == "credit":
             ledger = db.session.execute(
                 db.select(CreditLedger).where(CreditLedger.sale_id == rs.id)
-            ).scalar_one_or_none()
+            ).scalars().first()
             if ledger:
                 payment_status = ledger.status
                 amount_paid = ledger.amount_paid
@@ -278,7 +278,7 @@ def get_customer_history(cust_id: int):
         if wo.payment_method == "credit":
             ledger = db.session.execute(
                 db.select(CreditLedger).where(CreditLedger.wholesale_order_id == wo.id)
-            ).scalar_one_or_none()
+            ).scalars().first()
             if ledger:
                 payment_status = ledger.status
                 amount_paid = ledger.amount_paid
