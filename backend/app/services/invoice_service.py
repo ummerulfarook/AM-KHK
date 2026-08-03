@@ -37,9 +37,19 @@ def _get_logo_base64() -> str:
 
 def render_invoice_html(sale, settings: dict) -> str:
     """Render the invoice Jinja2 template to an HTML string."""
+    from datetime import timezone, timedelta
+    ist_tz = timezone(timedelta(hours=5, minutes=30))
+    created_at_ist = sale.created_at.astimezone(ist_tz)
+    formatted_date = created_at_ist.strftime("%d %b %Y")
+
     tpl = _jinja_env.get_template("invoice.html")
     logo_base64 = _get_logo_base64()
-    return tpl.render(sale=sale, settings=settings, logo_base64=logo_base64)
+    return tpl.render(
+        sale=sale,
+        settings=settings,
+        logo_base64=logo_base64,
+        formatted_date=formatted_date
+    )
 
 
 def generate_invoice_pdf(html: str) -> bytes:
@@ -112,7 +122,13 @@ def _write_receipt(p, sale):
 
     p.set(align="left")
     p.text(f"Invoice : {sale.invoice_number}\n")
-    p.text(f"Date    : {sale.created_at.strftime('%d/%m/%Y %I:%M %p')}\n")
+    
+    from datetime import timezone, timedelta
+    ist_tz = timezone(timedelta(hours=5, minutes=30))
+    created_at_ist = sale.created_at.astimezone(ist_tz)
+    date_str = created_at_ist.strftime('%d/%m/%Y')
+    p.text(f"Date    : {date_str}\n")
+    
     customer_name = sale.customer.name if sale.customer else (sale.billing_customer_name or "Walk-in")
     p.text(f"Customer: {customer_name}\n")
     phone = sale.customer.phone if (sale.customer and sale.customer.phone) else sale.billing_customer_phone
@@ -125,7 +141,7 @@ def _write_receipt(p, sale):
     p.text("-" * 32 + "\n")
     for item in sale.items:
         rate = f"{item.unit_price/100:.2f}"[:6]
-        name = (item.product.name if item.product else "Unknown")[:11]
+        name = (item.product.name if item.product else "Unknown").upper()[:11]
         qty = f"{item.quantity}"[:5]
         amt = f"{item.subtotal/100:.2f}"[:7]
         line = f"{rate:<6} {name:<11} {qty:>5} {amt:>7}\n"

@@ -10,17 +10,16 @@
 
     body {
       font-family: 'Poppins', sans-serif;
-      font-size: 13px;
+      font-size: 14px;
       color: #0F2419;
       background: #fff;
       padding: 0;
     }
 
     .page {
-      width: 148mm;
-      min-height: 210mm;
-      padding: 12mm 14mm;
-      margin: 0 auto;
+      width: 98mm;
+      padding: 8mm 6mm;
+      margin: 0;
     }
 
     /* ── Header ── */
@@ -111,8 +110,8 @@
 
     tbody td {
       padding: 6px 8px;
-      font-size: 12.5px;
-      border-bottom: 1px solid #c2d1c7;
+      font-size: 13.5px;
+      border-bottom: 1.5px solid #4a5d52;
       color: #0F2419;
     }
     tbody td:nth-child(2),
@@ -200,6 +199,7 @@
       .page {
         margin: 0 !important;
         padding-left: 0 !important;
+        width: 98mm !important;
       }
     }
   </style>
@@ -224,7 +224,7 @@
     <div class="invoice-meta" style="text-align: right;">
       <div class="invoice-num" style="font-size: 18px; font-weight: 800; color: #0E3A2A; letter-spacing: 0.2px;">NO: {{ sale.invoice_number }}</div>
       <div class="invoice-date" style="font-size: 11px; color: #3a4e44; font-weight: 600; margin-top: 3px;">
-        {{ sale.created_at.strftime('%d %b %Y, %I:%M %p') }}
+        {{ formatted_date }}
       </div>
     </div>
   </div>
@@ -260,15 +260,15 @@
     <tbody>
       {% for item in sale.items %}
       <tr>
-        <td style="text-align: left; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: #000000;">₹{{ "%.2f"|format(item.unit_price / 100) }}</td>
+        <td style="text-align: left; white-space: nowrap; font-size: 14px; font-weight: 600; color: #000000;">₹{{ "%.2f"|format(item.unit_price / 100) }}</td>
         <td style="text-align: left;">
-          <strong style="font-size: 13px;">{{ item.product.name if item.product else '—' }}</strong>
+          <strong style="font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">{{ item.product.name if item.product else '—' }}</strong>
           {% if item.product and item.product.unit %}
-            <span style="font-size:10px;color:#000000;font-weight:600;">({{ item.product.unit }})</span>
+            <span style="font-size:11px;color:#000000;font-weight:600;">({{ item.product.unit }})</span>
           {% endif %}
         </td>
-        <td style="text-align: right; font-size: 13.5px; font-weight: 600; color: #000000;">{{ item.quantity }}</td>
-        <td style="text-align: right; font-weight: 700; font-size: 14px; white-space: nowrap; color: #000000;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
+        <td style="text-align: right; font-size: 14px; font-weight: 600; color: #000000;">{{ item.quantity }}</td>
+        <td style="text-align: right; font-weight: 800; font-size: 15px; white-space: nowrap; color: #000000;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
       </tr>
       {% endfor %}
     </tbody>

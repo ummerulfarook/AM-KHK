@@ -51,6 +51,7 @@ export default function BillingPage() {
   const [cashPaid, setCashPaid] = useState('')
   const [selectedBank, setSelectedBank] = useState('')
   const [invoiceToPay, setInvoiceToPay] = useState('')
+  const [customDate, setCustomDate] = useState('')
   const searchRef = useRef(null)
 
   const settingsQuery = useQuery({
@@ -300,6 +301,7 @@ export default function BillingPage() {
     setNotes('')
     setAdHocName('')
     setAdHocPhone('')
+    setCustomDate('')
   }, [])
 
   // ── Totals ────────────────────────────────────────────────────────────────
@@ -397,6 +399,7 @@ export default function BillingPage() {
       notes: notes || null,
       billingCustomerName: customer ? null : adHocName || null,
       billingCustomerPhone: customer ? null : adHocPhone || null,
+      customDate: customDate || null,
     })
   }
 
@@ -442,6 +445,15 @@ export default function BillingPage() {
                 onChange={(_, v) => {
                   setCustomer(v)
                   setTimeout(() => searchRef.current?.focus(), 50)
+                }}
+                autoHighlight
+                openOnFocus
+                filterOptions={(options, state) => {
+                  const query = state.inputValue.toLowerCase()
+                  return options.filter(c =>
+                    (c.name && c.name.toLowerCase().includes(query)) ||
+                    (c.phone && c.phone.includes(query))
+                  )
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -861,6 +873,19 @@ export default function BillingPage() {
                 rows={2}
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
+              />
+
+              {/* Billing Date */}
+              <TextField
+                id="checkout-custom-date"
+                label="Billing Date"
+                type="date"
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                value={customDate}
+                onChange={e => setCustomDate(e.target.value)}
+                fullWidth
+                helperText="Leave blank for current date"
               />
 
               {/* Totals summary */}

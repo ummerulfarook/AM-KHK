@@ -52,6 +52,16 @@ export default function AppShell() {
           },
           '.MuiTableCell-root': {
             borderColor: '#a0aec0 !important', /* Make table grid borders darker gray for clear printing */
+            padding: '6px 8px !important', /* Tighten padding for report columns to fit on A4 */
+            fontSize: '0.78rem !important', /* Reduce text size slightly to prevent right-side cutoffs */
+          },
+          'table, .MuiTable-root': {
+            width: '100% !important',
+            tableLayout: 'auto !important',
+          },
+          '.MuiTableContainer-root': {
+            overflow: 'visible !important',
+            width: '100% !important',
           },
           '.print-main': {
             marginLeft: '0 !important',
@@ -69,10 +79,11 @@ export default function AppShell() {
             margin: '0 !important',
             padding: '0 !important',
           },
-          '.MuiCard-root': {
+          '.MuiCard-root, .MuiPaper-root': {
             boxShadow: 'none !important',
             border: 'none !important',
             padding: '0 !important',
+            width: '100% !important',
           }
         }
       }} />

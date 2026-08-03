@@ -40,11 +40,11 @@ def _get_settings() -> dict:
     return {r.key: r.value for r in rows}
 
 
-def _next_invoice_number(settings: dict) -> str:
+def _next_invoice_number(settings: dict, custom_date: datetime | None = None) -> str:
     """Generate invoice number and bump the sequence."""
     prefix = settings.get("invoice_prefix", "INV")
     seq = int(settings.get("invoice_next", "1"))
-    now = datetime.now(timezone.utc)
+    now = custom_date if custom_date else datetime.now(timezone.utc)
     inv_num = f"{prefix}-{now.year}{now.month:02d}-{seq:04d}"
 
     # Bump the counter
@@ -90,8 +90,18 @@ def create_sale():
         products_map[item_req.product_id] = p
 
     try:
+        # Determine sale date
+        sale_date = datetime.now(timezone.utc)
+        if req.custom_date:
+            try:
+                parsed_dt = datetime.strptime(req.custom_date, "%Y-%m-%d")
+                now = datetime.now(timezone.utc)
+                sale_date = parsed_dt.replace(hour=now.hour, minute=now.minute, second=now.second, tzinfo=timezone.utc)
+            except ValueError:
+                pass
+
         settings = _get_settings()
-        inv_num = _next_invoice_number(settings)
+        inv_num = _next_invoice_number(settings, custom_date=sale_date)
 
         # Compute totals
         subtotal = sum(i.subtotal for i in req.items)
@@ -125,6 +135,7 @@ def create_sale():
             partner=customer.partner if customer else "neutral",
             billing_customer_name=req.billing_customer_name,
             billing_customer_phone=req.billing_customer_phone,
+            created_at=sale_date,
         )
         db.session.add(sale)
         db.session.flush()  # get sale.id before commit
@@ -152,7 +163,7 @@ def create_sale():
                 sale.notes = f"{sale.notes or ''}\nReceived: Rs{req.cash_paid/100:.2f} | Shortage: Rs{shortage/100:.2f} (added to dues)".strip()
                 
                 credit_days = req.credit_days if req.credit_days is not None else int(settings.get("credit_days", "30"))
-                due = date.today() + timedelta(days=credit_days)
+                due = sale_date.date() + timedelta(days=credit_days)
                 db.session.add(CreditLedger(
                     customer_id=req.customer_id,
                     sale_id=sale.id,
@@ -161,6 +172,7 @@ def create_sale():
                     amount_paid=0,
                     due_date=due,
                     status="due",
+                    created_at=sale_date,
                 ))
             elif req.cash_paid > total:
                 # Greater than bill: apply surplus to outstanding credit
@@ -186,13 +198,14 @@ def create_sale():
                             amount=applied,
                             method=req.payment_method,
                             recorded_by_id=current_user.id,
-                            notes=f"[{req.payment_method.upper()}-SURPLUS] Applied from Sale {inv_num}"
+                            notes=f"[{req.payment_method.upper()}-SURPLUS] Applied from Sale {inv_num}",
+                            recorded_at=sale_date,
                         )
                         db.session.add(p)
                         ledger_entry.amount_paid += applied
                         if ledger_entry.amount_paid >= ledger_entry.amount:
                             ledger_entry.status = "paid"
-                            ledger_entry.paid_at = datetime.now(timezone.utc)
+                            ledger_entry.paid_at = sale_date
                         applied_amount -= applied
                         
                         sale.notes = f"{sale.notes or ''}\n[Prev Bill Pay] Paid Rs{applied/100:.2f} to {req.invoice_to_pay}".strip()
@@ -215,13 +228,14 @@ def create_sale():
                             amount=applied,
                             method=req.payment_method,
                             recorded_by_id=current_user.id,
-                            notes=f"[{req.payment_method.upper()}-SURPLUS] Applied from Sale {inv_num}"
+                            notes=f"[{req.payment_method.upper()}-SURPLUS] Applied from Sale {inv_num}",
+                            recorded_at=sale_date,
                         )
                         db.session.add(p)
                         entry.amount_paid += applied
                         if entry.amount_paid >= entry.amount:
                             entry.status = "paid"
-                            entry.paid_at = datetime.now(timezone.utc)
+                            entry.paid_at = sale_date
                         applied_amount -= applied
             elif req.cash_paid == total:
                 sale.notes = f"{sale.notes or ''}\nReceived: Rs{req.cash_paid/100:.2f} (exact payment)".strip()
@@ -236,7 +250,7 @@ def create_sale():
                 customer.opening_balance = customer.outstanding_balance
             
             credit_days = req.credit_days if req.credit_days is not None else int(settings.get("credit_days", "30"))
-            due = date.today() + timedelta(days=credit_days)
+            due = sale_date.date() + timedelta(days=credit_days)
             
             ledger = CreditLedger(
                 customer_id=req.customer_id,
@@ -246,6 +260,7 @@ def create_sale():
                 amount_paid=paid_now,
                 due_date=due,
                 status="paid" if paid_now >= total else "due_soon" if paid_now > 0 else "due",
+                created_at=sale_date,
             )
             db.session.add(ledger)
             db.session.flush()
@@ -256,7 +271,8 @@ def create_sale():
                     amount=paid_now,
                     method="cash",
                     recorded_by_id=current_user.id,
-                    notes=f"[POS Credit Downpayment] Paid Rs{paid_now/100:.2f} during checkout"
+                    notes=f"[POS Credit Downpayment] Paid Rs{paid_now/100:.2f} during checkout",
+                    recorded_at=sale_date,
                 )
                 db.session.add(p)
                 sale.notes = f"{sale.notes or ''}\nCredit Sale. Paid: Rs{paid_now/100:.2f} | Remaining: Rs{credit_amount/100:.2f} (added to dues)".strip()

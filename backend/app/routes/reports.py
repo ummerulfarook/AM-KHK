@@ -515,6 +515,14 @@ def get_custom_report():
             p_stmt = p_stmt.where(PurchaseOrder.created_at <= end_date)
         purchases = db.session.execute(p_stmt).scalars().all()
 
+        # Fetch dues payments recorded in this period
+        pay_stmt = db.select(Payment)
+        if start_date:
+            pay_stmt = pay_stmt.where(Payment.recorded_at >= start_date)
+        if end_date:
+            pay_stmt = pay_stmt.where(Payment.recorded_at <= end_date)
+        payments = db.session.execute(pay_stmt).scalars().all()
+
         rows = []
         for s in sales:
             rows.append({
@@ -542,6 +550,22 @@ def get_custom_report():
                 "particulars": f"PO Purchase: {p.supplier.name if p.supplier else 'N/A'}",
                 "income": 0,
                 "expense": p.total_amount
+            })
+        for pay in payments:
+            c_name = pay.credit_entry.customer.name if (pay.credit_entry and pay.credit_entry.customer) else "N/A"
+            ref_num = pay.credit_entry.invoice_ref if pay.credit_entry else ""
+            particulars = f"Dues Payment: {c_name}"
+            if ref_num:
+                particulars += f" (For {ref_num})"
+            particulars += f" via {pay.method.upper()}"
+            
+            rows.append({
+                "type": "payment",
+                "reference": f"PAY-{pay.id}",
+                "date": pay.recorded_at.isoformat(),
+                "particulars": particulars,
+                "income": pay.amount,
+                "expense": 0
             })
             
         rows.sort(key=lambda x: x["date"], reverse=True)

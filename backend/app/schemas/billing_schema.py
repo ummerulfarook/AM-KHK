@@ -33,6 +33,7 @@ class CreateSaleRequest:
     bank_name: Optional[str] = None
     cash_paid: Optional[int] = None       # paise
     invoice_to_pay: Optional[str] = None
+    custom_date: Optional[str] = None
 
     VALID_PAYMENT_METHODS = {"cash", "upi", "bank", "credit"}
 
@@ -110,7 +111,7 @@ class CreateSaleRequest:
             except (TypeError, ValueError):
                 pass
 
-        invoice_to_pay = (data.get("invoiceToPay") or "").strip() or None
+        custom_date = (data.get("customDate") or "").strip() or None
 
         if errors:
             raise ValueError(errors)
@@ -129,6 +130,7 @@ class CreateSaleRequest:
             bank_name=bank_name,
             cash_paid=cash_paid,
             invoice_to_pay=invoice_to_pay,
+            custom_date=custom_date,
         )
 
 
