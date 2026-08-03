@@ -74,6 +74,13 @@ export default function DashboardPage() {
     return localStorage.getItem('working_date') || ''
   })
 
+  const getLocalDateString = () => {
+    const d = new Date()
+    const offset = d.getTimezoneOffset()
+    const localDate = new Date(d.getTime() - (offset * 60 * 1000))
+    return localDate.toISOString().split('T')[0]
+  }
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['dashboard'],
     queryFn: dashboardApi.getDashboard,
@@ -130,7 +137,7 @@ export default function DashboardPage() {
             type="date"
             size="small"
             InputLabelProps={{ shrink: true }}
-            value={workingDate}
+            value={workingDate || getLocalDateString()}
             onChange={(e) => handleWorkingDateChange(e.target.value)}
             sx={{
               width: 170,
