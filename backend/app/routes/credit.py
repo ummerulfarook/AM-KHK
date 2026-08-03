@@ -142,6 +142,8 @@ def record_payment(entry_id: int):
     upi_id = data.get("upiId")
 
     try:
+        from app.utils.date_helper import get_working_date
+        working_dt = get_working_date()
         # 1. Record payment row
         payment = Payment(
             credit_ledger_id=entry.id,
@@ -149,7 +151,8 @@ def record_payment(entry_id: int):
             method=method,
             upi_id=upi_id,
             recorded_by_id=current_user.id,
-            notes=notes
+            notes=notes,
+            recorded_at=working_dt,
         )
         db.session.add(payment)
 
@@ -161,7 +164,7 @@ def record_payment(entry_id: int):
             
         if entry.amount_paid >= entry.amount:
             entry.status = "paid"
-            entry.paid_at = datetime.now(timezone.utc)
+            entry.paid_at = working_dt
 
         # 3. If wholesale order, check if we should update wholesale order payment status
         if entry.wholesale_order_id:

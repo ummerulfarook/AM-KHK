@@ -875,19 +875,6 @@ export default function BillingPage() {
                 onChange={e => setNotes(e.target.value)}
               />
 
-              {/* Billing Date */}
-              <TextField
-                id="checkout-custom-date"
-                label="Billing Date"
-                type="date"
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                value={customDate}
-                onChange={e => setCustomDate(e.target.value)}
-                fullWidth
-                helperText="Leave blank for current date"
-              />
-
               {/* Totals summary */}
               <Box
                 sx={{

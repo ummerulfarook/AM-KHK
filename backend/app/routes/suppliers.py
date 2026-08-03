@@ -217,13 +217,16 @@ def create_purchase_order():
     notes = (data.get("notes") or "").strip() or None
 
     try:
+        from app.utils.date_helper import get_working_date
+        working_dt = get_working_date()
         po = PurchaseOrder(
             supplier_id=supplier_id,
             expected_delivery=expected_delivery,
             status="draft",
             payment_status="pending",
             notes=notes,
-            created_by_id=current_user.id
+            created_by_id=current_user.id,
+            created_at=working_dt,
         )
         db.session.add(po)
         db.session.flush()

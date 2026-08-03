@@ -90,15 +90,8 @@ def create_sale():
         products_map[item_req.product_id] = p
 
     try:
-        # Determine sale date
-        sale_date = datetime.now(timezone.utc)
-        if req.custom_date:
-            try:
-                parsed_dt = datetime.strptime(req.custom_date, "%Y-%m-%d")
-                now = datetime.now(timezone.utc)
-                sale_date = parsed_dt.replace(hour=now.hour, minute=now.minute, second=now.second, tzinfo=timezone.utc)
-            except ValueError:
-                pass
+        from app.utils.date_helper import get_working_date
+        sale_date = get_working_date()
 
         settings = _get_settings()
         inv_num = _next_invoice_number(settings, custom_date=sale_date)

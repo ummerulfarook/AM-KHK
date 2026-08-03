@@ -123,6 +123,8 @@ def create_order():
     discount = _rupees_to_paise(data.get("discount", 0))
 
     try:
+        from app.utils.date_helper import get_working_date
+        working_dt = get_working_date()
         # Build order
         order = WholesaleOrder(
             customer_id=customer_id,
@@ -135,6 +137,7 @@ def create_order():
             upi_id=data.get("upiId"),
             created_by_id=current_user.id,
             partner=customer.partner if customer else "neutral",
+            created_at=working_dt,
         )
         db.session.add(order)
         db.session.flush()
@@ -335,7 +338,11 @@ def transition_status(order_id: int):
                 order.customer.opening_balance = order.customer.outstanding_balance
                 settings = _get_settings()
                 credit_days = int(settings.get("credit_days", "30"))
-                due = date.today() + timedelta(days=credit_days)
+                
+                from app.utils.date_helper import get_working_date
+                working_dt = get_working_date()
+                due = working_dt.date() + timedelta(days=credit_days)
+                
                 db.session.add(CreditLedger(
                     customer_id=order.customer_id,
                     wholesale_order_id=order.id,
@@ -344,6 +351,7 @@ def transition_status(order_id: int):
                     amount_paid=0,
                     due_date=due,
                     status="due",
+                    created_at=working_dt,
                 ))
 
         db.session.commit()

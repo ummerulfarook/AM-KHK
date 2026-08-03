@@ -18,11 +18,10 @@ from app.models.customer import Customer
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/api/dashboard")
 
 
-def _today_range():
+def _today_range(now_dt: datetime) -> tuple[datetime, datetime]:
     """Return (start_of_today, end_of_today) as UTC-aware datetimes."""
-    now = datetime.now(timezone.utc)
-    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    start = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = now_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
     return start, end
 
 
@@ -32,8 +31,11 @@ def get_dashboard():
     """Aggregate dashboard data from real DB rows."""
     from app.routes.credit import update_credit_statuses
     update_credit_statuses()
-    today_start, today_end = _today_range()
-    today_date = date.today()
+    
+    from app.utils.date_helper import get_working_date
+    working_dt = get_working_date()
+    today_start, today_end = _today_range(working_dt)
+    today_date = working_dt.date()
 
     # ── Today's retail sales ────────────────────────────────────────────────
     retail_today = db.session.execute(

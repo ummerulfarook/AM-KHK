@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Box, Grid, Typography, Card, CardContent, CardHeader,
+  Box, Button, Grid, Typography, Card, CardContent, CardHeader,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   List, ListItem, ListItemText, ListItemIcon, LinearProgress,
-  Alert, Skeleton, alpha, Divider, IconButton, Tooltip,
+  Alert, Skeleton, alpha, Divider, IconButton, Tooltip, TextField,
 } from '@mui/material'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
@@ -69,6 +69,11 @@ function StatSkeleton() {
 }
 
 export default function DashboardPage() {
+  const qc = useQueryClient()
+  const [workingDate, setWorkingDate] = useState(() => {
+    return localStorage.getItem('working_date') || ''
+  })
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['dashboard'],
     queryFn: dashboardApi.getDashboard,
@@ -84,6 +89,19 @@ export default function DashboardPage() {
     }))
   }, [data])
 
+  const handleWorkingDateChange = (val) => {
+    setWorkingDate(val)
+    if (val) {
+      localStorage.setItem('working_date', val)
+    } else {
+      localStorage.removeItem('working_date')
+    }
+    // Invalidate queries so that all dashboard stats and summaries reload for the selected date!
+    qc.invalidateQueries(['dashboard'])
+    qc.invalidateQueries(['inventory'])
+    qc.invalidateQueries(['inventoryStats'])
+  }
+
   if (isError) {
     return (
       <Alert severity="error" sx={{ borderRadius: '12px' }}>
@@ -95,13 +113,45 @@ export default function DashboardPage() {
   return (
     <Box>
       {/* ── Page header ─────────────────────────────────────────────────── */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
-          Dashboard
-        </Typography>
-        <Typography sx={{ color: tokens.textSecondary, fontSize: '0.875rem' }}>
-          {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </Typography>
+      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
+            Dashboard
+          </Typography>
+          <Typography sx={{ color: tokens.textSecondary, fontSize: '0.875rem' }}>
+            {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </Typography>
+        </Box>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <TextField
+            id="global-working-date"
+            label="System Working Date"
+            type="date"
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={workingDate}
+            onChange={(e) => handleWorkingDateChange(e.target.value)}
+            sx={{
+              width: 170,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '10px',
+                backgroundColor: tokens.surface,
+              }
+            }}
+          />
+          {workingDate && (
+            <Button
+              size="small"
+              variant="text"
+              color="error"
+              onClick={() => handleWorkingDateChange('')}
+              sx={{ fontWeight: 600, fontSize: '0.78rem' }}
+            >
+              Reset
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {/* ── Row 1: Stat cards ────────────────────────────────────────────── */}

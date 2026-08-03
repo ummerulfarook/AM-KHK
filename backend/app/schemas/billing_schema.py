@@ -111,6 +111,7 @@ class CreateSaleRequest:
             except (TypeError, ValueError):
                 pass
 
+        invoice_to_pay = (data.get("invoiceToPay") or "").strip() or None
         custom_date = (data.get("customDate") or "").strip() or None
 
         if errors:

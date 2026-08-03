@@ -105,7 +105,8 @@ def create_expense():
 
     expense_date_str = data.get("expenseDate")
     if not expense_date_str:
-        expense_date = date.today()
+        from app.utils.date_helper import get_working_date
+        expense_date = get_working_date().date()
     else:
         try:
             expense_date = date.fromisoformat(expense_date_str)
