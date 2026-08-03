@@ -17,9 +17,22 @@ import StatCard from '../../components/common/StatCard'
 const fmtRupees = (paise) => '₹' + (paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })
 
 export default function ReportsPage() {
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0])
+  const [workingDate] = useState(() => {
+    return sessionStorage.getItem('working_date') || ''
+  })
+
+  const getLocalDateString = () => {
+    const d = new Date()
+    const offset = d.getTimezoneOffset()
+    const localDate = new Date(d.getTime() - (offset * 60 * 1000))
+    return localDate.toISOString().split('T')[0]
+  }
+
+  const defaultDate = workingDate || getLocalDateString()
+
+  const [dateFrom, setDateFrom] = useState(workingDate)
+  const [dateTo, setDateTo] = useState(workingDate)
+  const [targetDate, setTargetDate] = useState(defaultDate)
   const [exporting, setExporting] = useState(false)
   const [reportType, setReportType] = useState('daily') // daily, monthly, yearly, expense, credit, purchase, purchase_payment
 

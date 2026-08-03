@@ -71,7 +71,7 @@ function StatSkeleton() {
 export default function DashboardPage() {
   const qc = useQueryClient()
   const [workingDate, setWorkingDate] = useState(() => {
-    return localStorage.getItem('working_date') || ''
+    return sessionStorage.getItem('working_date') || ''
   })
 
   const getLocalDateString = () => {
@@ -99,9 +99,9 @@ export default function DashboardPage() {
   const handleWorkingDateChange = (val) => {
     setWorkingDate(val)
     if (val) {
-      localStorage.setItem('working_date', val)
+      sessionStorage.setItem('working_date', val)
     } else {
-      localStorage.removeItem('working_date')
+      sessionStorage.removeItem('working_date')
     }
     // Invalidate queries so that all dashboard stats and summaries reload for the selected date!
     qc.invalidateQueries(['dashboard'])

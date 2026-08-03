@@ -16,7 +16,7 @@ const api = axios.create({
 // Request interceptor to add X-Working-Date header
 api.interceptors.request.use(
   (config) => {
-    const workingDate = localStorage.getItem('working_date')
+    const workingDate = sessionStorage.getItem('working_date')
     if (workingDate) {
       config.headers['X-Working-Date'] = workingDate
     }
