@@ -424,7 +424,6 @@ def clear_customer_dues(cust_id: int):
                         if order:
                             order.payment_status = "paid"
                 else:
-                    entry.status = "partial"
                     # Update wholesale order payment status if linked
                     if entry.wholesale_order_id:
                         order = db.session.get(WholesaleOrder, entry.wholesale_order_id)
@@ -482,7 +481,6 @@ def clear_customer_dues(cust_id: int):
                     )
                     db.session.add(p)
                     entry.amount_paid += applied_amount
-                    entry.status = "partial"
                     applied_amount = 0
 
                     # Update wholesale order payment status if linked
