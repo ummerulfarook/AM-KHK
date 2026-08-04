@@ -6,6 +6,7 @@ import {
   InputLabel, MenuItem, Paper, Select, Snackbar, TextField, Typography,
   alpha, List, ListItemButton, ListItemText, ListItemIcon,
   Dialog, DialogTitle, DialogContent, DialogActions, Stack, IconButton,
+  Badge,
 } from '@mui/material'
 import PointOfSaleRoundedIcon from '@mui/icons-material/PointOfSaleRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
@@ -14,6 +15,8 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import PauseRoundedIcon from '@mui/icons-material/PauseRounded'
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import { inventoryApi } from '../../api/inventoryApi'
 import { billingApi } from '../../api/billingApi'
 import { tokens } from '../../theme/theme'
@@ -39,19 +42,41 @@ export default function BillingPage() {
 
   // ── State ────────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('')
-  const [cart, setCart] = useState([])  // [{ productId, name, unit, qty, unitPrice, stockStatus }]
-  const [customer, setCustomer] = useState(null)
-  const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [discount, setDiscount] = useState('')
-  const [creditDays, setCreditDays] = useState('')
-  const [notes, setNotes] = useState('')
+  const [cart, setCart] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('pos_cart') || '[]')
+    } catch (e) {
+      return []
+    }
+  })
+  const [customer, setCustomer] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('pos_customer') || 'null')
+    } catch (e) {
+      return null
+    }
+  })
+  const [paymentMethod, setPaymentMethod] = useState(() => localStorage.getItem('pos_payment_method') || 'cash')
+  const [discount, setDiscount] = useState(() => localStorage.getItem('pos_discount') || '')
+  const [creditDays, setCreditDays] = useState(() => localStorage.getItem('pos_credit_days') || '')
+  const [notes, setNotes] = useState(() => localStorage.getItem('pos_notes') || '')
   const [invoiceDialogSale, setInvoiceDialogSale] = useState(null)
   const [toast, setToast] = useState({ open: false, msg: '', severity: 'success' })
-  const [selectedUpiAccount, setSelectedUpiAccount] = useState('')
-  const [cashPaid, setCashPaid] = useState('')
-  const [selectedBank, setSelectedBank] = useState('')
-  const [invoiceToPay, setInvoiceToPay] = useState('')
-  const [customDate, setCustomDate] = useState('')
+  const [selectedUpiAccount, setSelectedUpiAccount] = useState(() => localStorage.getItem('pos_selected_upi') || '')
+  const [cashPaid, setCashPaid] = useState(() => localStorage.getItem('pos_cash_paid') || '')
+  const [selectedBank, setSelectedBank] = useState(() => localStorage.getItem('pos_selected_bank') || '')
+  const [invoiceToPay, setInvoiceToPay] = useState(() => localStorage.getItem('pos_invoice_to_pay') || '')
+  const [customDate, setCustomDate] = useState(() => localStorage.getItem('pos_custom_date') || '')
+
+  // Held Bills and Recall states
+  const [heldBills, setHeldBills] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('pos_held_bills') || '[]')
+    } catch (e) {
+      return []
+    }
+  })
+  const [recallOpen, setRecallOpen] = useState(false)
   const searchRef = useRef(null)
 
   const settingsQuery = useQuery({
@@ -95,8 +120,8 @@ export default function BillingPage() {
   const [quickInitialStock, setQuickInitialStock] = useState('0')
 
   // Ad-hoc Customer Details state
-  const [adHocName, setAdHocName] = useState('')
-  const [adHocPhone, setAdHocPhone] = useState('')
+  const [adHocName, setAdHocName] = useState(() => localStorage.getItem('pos_adhoc_name') || '')
+  const [adHocPhone, setAdHocPhone] = useState(() => localStorage.getItem('pos_adhoc_phone') || '')
 
   // Search Results Highlight state
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
@@ -137,6 +162,84 @@ export default function BillingPage() {
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [])
+
+  // Sync POS States to localStorage for Session Protection
+  useEffect(() => {
+    localStorage.setItem('pos_cart', JSON.stringify(cart))
+  }, [cart])
+  useEffect(() => {
+    localStorage.setItem('pos_customer', JSON.stringify(customer))
+  }, [customer])
+  useEffect(() => {
+    localStorage.setItem('pos_payment_method', paymentMethod)
+  }, [paymentMethod])
+  useEffect(() => {
+    localStorage.setItem('pos_discount', discount)
+  }, [discount])
+  useEffect(() => {
+    localStorage.setItem('pos_credit_days', creditDays)
+  }, [creditDays])
+  useEffect(() => {
+    localStorage.setItem('pos_notes', notes)
+  }, [notes])
+  useEffect(() => {
+    localStorage.setItem('pos_selected_upi', selectedUpiAccount)
+  }, [selectedUpiAccount])
+  useEffect(() => {
+    localStorage.setItem('pos_selected_bank', selectedBank)
+  }, [selectedBank])
+  useEffect(() => {
+    localStorage.setItem('pos_cash_paid', cashPaid)
+  }, [cashPaid])
+  useEffect(() => {
+    localStorage.setItem('pos_invoice_to_pay', invoiceToPay)
+  }, [invoiceToPay])
+  useEffect(() => {
+    localStorage.setItem('pos_custom_date', customDate)
+  }, [customDate])
+  useEffect(() => {
+    localStorage.setItem('pos_adhoc_name', adHocName)
+  }, [adHocName])
+  useEffect(() => {
+    localStorage.setItem('pos_adhoc_phone', adHocPhone)
+  }, [adHocPhone])
+  useEffect(() => {
+    localStorage.setItem('pos_held_bills', JSON.stringify(heldBills))
+  }, [heldBills])
+
+  const handleHoldBill = () => {
+    if (!cart.length) {
+      showToast('Cannot hold an empty cart', 'warning')
+      return
+    }
+    const description = customer 
+      ? `Customer: ${customer.name}` 
+      : (adHocName ? `Draft: ${adHocName}` : `Walk-in Draft (${cart.length} items)`)
+      
+    const newHeld = {
+      id: Date.now(),
+      time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      date: new Date().toLocaleDateString('en-IN'),
+      description,
+      cart,
+      customer,
+      paymentMethod,
+      discount,
+      creditDays,
+      notes,
+      adHocName,
+      adHocPhone,
+      selectedUpiAccount,
+      selectedBank,
+      cashPaid,
+      invoiceToPay,
+      customDate,
+    }
+    
+    setHeldBills(prev => [...prev, newHeld])
+    clearCart()
+    showToast('Bill successfully put on hold', 'success')
+  }
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const productsQuery = useQuery({
@@ -323,6 +426,24 @@ export default function BillingPage() {
     setAdHocName('')
     setAdHocPhone('')
     setCustomDate('')
+    setCashPaid('')
+    setSelectedBank('')
+    setInvoiceToPay('')
+    
+    // Explicitly clean up localStorage session keys
+    localStorage.removeItem('pos_cart')
+    localStorage.removeItem('pos_customer')
+    localStorage.removeItem('pos_payment_method')
+    localStorage.removeItem('pos_discount')
+    localStorage.removeItem('pos_credit_days')
+    localStorage.removeItem('pos_notes')
+    localStorage.removeItem('pos_selected_upi')
+    localStorage.removeItem('pos_selected_bank')
+    localStorage.removeItem('pos_cash_paid')
+    localStorage.removeItem('pos_invoice_to_pay')
+    localStorage.removeItem('pos_custom_date')
+    localStorage.removeItem('pos_adhoc_name')
+    localStorage.removeItem('pos_adhoc_phone')
   }, [])
 
   // ── Totals ────────────────────────────────────────────────────────────────
@@ -442,6 +563,42 @@ export default function BillingPage() {
           />
         )}
         <Box sx={{ flexGrow: 1 }} />
+        <Button
+          id="btn-pos-hold"
+          variant="outlined"
+          color="secondary"
+          startIcon={<PauseRoundedIcon />}
+          onClick={handleHoldBill}
+          disabled={cartIsEmpty}
+          sx={{
+            borderRadius: '10px',
+            fontWeight: 600,
+            color: tokens.textSecondary,
+            borderColor: tokens.border,
+            '&:hover': { borderColor: tokens.textSecondary, background: tokens.surfaceAlt }
+          }}
+        >
+          Hold Bill
+        </Button>
+        <Button
+          id="btn-pos-recall"
+          variant="contained"
+          onClick={() => setRecallOpen(true)}
+          startIcon={
+            <Badge badgeContent={heldBills.length} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', height: 16, minWidth: 16 } }}>
+              <HistoryRoundedIcon />
+            </Badge>
+          }
+          sx={{
+            borderRadius: '10px',
+            fontWeight: 600,
+            background: tokens.forest800,
+            color: '#fff',
+            '&:hover': { background: tokens.forest900 }
+          }}
+        >
+          Recall Draft ({heldBills.length})
+        </Button>
         <Button
           id="btn-pos-return"
           variant="outlined"
@@ -1192,6 +1349,120 @@ export default function BillingPage() {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Held / Recall Draft Bills Dialog */}
+      <Dialog
+        open={recallOpen}
+        onClose={() => setRecallOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '20px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Held Draft Bills</Typography>
+            <IconButton size="small" onClick={() => setRecallOpen(false)}>
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ p: 2, maxHeight: 400, overflow: 'auto' }}>
+          {heldBills.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography sx={{ color: tokens.textSecondary, fontSize: '0.875rem' }}>
+                No bills currently on hold.
+              </Typography>
+            </Box>
+          ) : (
+            <Stack spacing={1.5}>
+              {heldBills.map((held) => {
+                const itemTotalPaise = held.cart.reduce((sum, i) => sum + Math.round(i.qty * i.unitPrice), 0);
+                const discountPaise = Math.round((parseFloat(held.discount) || 0) * 100);
+                const finalTotal = Math.max(0, itemTotalPaise - discountPaise);
+                return (
+                  <Card
+                    key={held.id}
+                    variant="outlined"
+                    sx={{
+                      borderRadius: '12px',
+                      borderColor: tokens.border,
+                      p: 1.5,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1,
+                      backgroundColor: tokens.surface,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                      <Box>
+                        <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: tokens.textPrimary }}>
+                          {held.description}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>
+                          Held at {held.time} on {held.date}
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', color: tokens.emerald600 }}>
+                        {fmt(finalTotal)}
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontSize: '0.75rem', color: tokens.textSecondary }}>
+                      {held.cart.length} item{held.cart.length > 1 ? 's' : ''} • Method: {held.paymentMethod.toUpperCase()}
+                    </Typography>
+                    <Divider sx={{ borderColor: tokens.border, my: 0.25 }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          setHeldBills(prev => prev.filter(b => b.id !== held.id))
+                          showToast('Held bill discarded', 'info')
+                        }}
+                        sx={{ fontSize: '0.72rem', py: 0.25, borderRadius: '8px' }}
+                      >
+                        Discard
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => {
+                          setCart(held.cart)
+                          setCustomer(held.customer)
+                          setPaymentMethod(held.paymentMethod)
+                          setDiscount(held.discount)
+                          setCreditDays(held.creditDays)
+                          setNotes(held.notes)
+                          setAdHocName(held.adHocName || '')
+                          setAdHocPhone(held.adHocPhone || '')
+                          setSelectedUpiAccount(held.selectedUpiAccount || '')
+                          setSelectedBank(held.selectedBank || '')
+                          setCashPaid(held.cashPaid || '')
+                          setInvoiceToPay(held.invoiceToPay || '')
+                          setCustomDate(held.customDate || '')
+                          setHeldBills(prev => prev.filter(b => b.id !== held.id))
+                          setRecallOpen(false)
+                          showToast('Bill restored', 'success')
+                        }}
+                        sx={{
+                          fontSize: '0.72rem',
+                          py: 0.25,
+                          borderRadius: '8px',
+                          background: tokens.emerald600,
+                          color: '#fff',
+                          '&:hover': { background: tokens.emerald500 }
+                        }}
+                      >
+                        Restore
+                      </Button>
+                    </Box>
+                  </Card>
+                )
+              })}
+            </Stack>
+          )}
+        </DialogContent>
       </Dialog>
     </Box>
   )
