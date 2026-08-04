@@ -386,6 +386,9 @@ def clear_customer_dues(cust_id: int):
     invoice_ref = data.get("invoiceRef")
 
     try:
+        from app.utils.date_helper import get_working_date
+        working_dt = get_working_date()
+
         # 1. Update customer's outstanding balance
         customer.outstanding_balance = max(0, customer.outstanding_balance - amount)
         customer.opening_balance = customer.outstanding_balance
@@ -411,13 +414,14 @@ def clear_customer_dues(cust_id: int):
                     upi_id=upi_id,
                     bank_name=bank_name,
                     recorded_by_id=current_user.id,
-                    notes=f"[Invoice Payment: {invoice_ref}] {notes or ''}".strip()
+                    notes=f"[Invoice Payment: {invoice_ref}] {notes or ''}".strip(),
+                    recorded_at=working_dt,
                 )
                 db.session.add(p)
                 entry.amount_paid += applied
                 if entry.amount_paid >= entry.amount:
                     entry.status = "paid"
-                    entry.paid_at = datetime.now(timezone.utc)
+                    entry.paid_at = working_dt
                     # Update wholesale order payment status if linked
                     if entry.wholesale_order_id:
                         order = db.session.get(WholesaleOrder, entry.wholesale_order_id)
@@ -455,12 +459,13 @@ def clear_customer_dues(cust_id: int):
                         upi_id=upi_id,
                         bank_name=bank_name,
                         recorded_by_id=current_user.id,
-                        notes=f"[General Payment] {notes or ''}".strip()
+                        notes=f"[General Payment] {notes or ''}".strip(),
+                        recorded_at=working_dt,
                     )
                     db.session.add(p)
                     entry.amount_paid += rem
                     entry.status = "paid"
-                    entry.paid_at = datetime.now(timezone.utc)
+                    entry.paid_at = working_dt
                     applied_amount -= rem
 
                     # Update wholesale order payment status if linked
@@ -477,7 +482,8 @@ def clear_customer_dues(cust_id: int):
                         upi_id=upi_id,
                         bank_name=bank_name,
                         recorded_by_id=current_user.id,
-                        notes=f"[General Payment] {notes or ''}".strip()
+                        notes=f"[General Payment] {notes or ''}".strip(),
+                        recorded_at=working_dt,
                     )
                     db.session.add(p)
                     entry.amount_paid += applied_amount
