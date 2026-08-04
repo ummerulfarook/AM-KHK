@@ -359,7 +359,7 @@ def get_invoice_pdf(sale_id: int):
     html = render_invoice_html(sale, settings)
 
     try:
-        pdf_bytes = generate_invoice_pdf(html)
+        pdf_bytes = generate_invoice_pdf(html, sale=sale, settings=settings)
         return send_file(
             io.BytesIO(pdf_bytes),
             mimetype="application/pdf",

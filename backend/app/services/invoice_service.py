@@ -52,21 +52,57 @@ def render_invoice_html(sale, settings: dict) -> str:
     )
 
 
-def generate_invoice_pdf(html: str) -> bytes:
+def render_invoice_pdf_html(sale, settings: dict) -> str:
+    """Render the PDF-specific invoice template (xhtml2pdf-compatible, no flexbox)."""
+    from datetime import timezone, timedelta
+    ist_tz = timezone(timedelta(hours=5, minutes=30))
+    created_at_ist = sale.created_at.astimezone(ist_tz)
+    formatted_date = created_at_ist.strftime("%d %b %Y")
+
+    tpl = _jinja_env.get_template("invoice_pdf.html")
+    logo_base64 = _get_logo_base64()
+    return tpl.render(
+        sale=sale,
+        settings=settings,
+        logo_base64=logo_base64,
+        formatted_date=formatted_date
+    )
+
+
+def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
     """
-    Convert rendered HTML to PDF bytes using WeasyPrint.
-    Raises ImportError if WeasyPrint / GTK is not available.
+    Convert rendered HTML to PDF bytes.
+    If sale and settings are provided, re-renders using the PDF-specific template
+    for better xhtml2pdf compatibility.
+    Uses xhtml2pdf (pure Python, no GTK needed) as the primary engine.
+    Falls back to WeasyPrint if xhtml2pdf is unavailable.
+    Raises ImportError if neither is available.
     """
+    # Primary: xhtml2pdf (works on Windows without GTK)
     try:
-        from weasyprint import HTML
+        from xhtml2pdf import pisa
+
+        # Use the PDF-specific template if sale object is available
+        if sale and settings is not None:
+            html = render_invoice_pdf_html(sale, settings)
+
+        result_buffer = io.BytesIO()
+        pisa_status = pisa.CreatePDF(io.StringIO(html), dest=result_buffer)
+        if pisa_status.err:
+            raise RuntimeError(f"xhtml2pdf conversion error (code {pisa_status.err})")
+        return result_buffer.getvalue()
+    except ImportError:
+        pass
+
+    # Fallback: WeasyPrint (requires GTK runtime on Windows)
+    try:
+        from weasyprint import HTML as WeasyprintHTML
+        return WeasyprintHTML(string=html).write_pdf()
     except Exception as exc:
         raise ImportError(
-            "WeasyPrint is not available (GTK libraries may be missing on Windows). "
-            "Install the GTK runtime from https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer"
+            "Neither xhtml2pdf nor WeasyPrint is available for PDF generation. "
+            "Install xhtml2pdf: pip install xhtml2pdf"
         ) from exc
-
-    pdf_bytes = HTML(string=html).write_pdf()
-    return pdf_bytes
 
 
 def print_thermal_receipt(sale, printer_config: dict) -> bool:
