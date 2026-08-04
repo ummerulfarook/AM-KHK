@@ -163,12 +163,17 @@ def create_order():
             item_subtotal = int(Decimal(str(qty)) * unit_price)
             subtotal += item_subtotal
 
+            boxes = int(item.get("boxes", 0))
+            box_weight = float(item.get("boxWeight", 0.0))
+
             db.session.add(WholesaleOrderItem(
                 order_id=order.id,
                 product_id=prod_id,
                 quantity=qty,
                 unit_price=unit_price,
-                subtotal=item_subtotal
+                subtotal=item_subtotal,
+                boxes=boxes,
+                box_weight=box_weight,
             ))
 
         order.total_amount = max(0, subtotal - discount)

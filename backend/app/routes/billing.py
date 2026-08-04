@@ -142,6 +142,8 @@ def create_sale():
                 quantity=item_req.quantity,
                 unit_price=item_req.unit_price,
                 subtotal=item_req.subtotal,
+                boxes=item_req.boxes,
+                box_weight=item_req.box_weight,
             ))
             p.current_stock = round(p.current_stock - item_req.quantity, 4)
             p.selling_price = item_req.unit_price

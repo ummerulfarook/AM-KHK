@@ -106,9 +106,9 @@ def print_thermal_receipt(sale, printer_config: dict) -> bool:
         return True
 
     except ImportError as exc:
-        raise RuntimeError("python-escpos is not installed") from exc
+        raise RuntimeError("python-escpos is not installed on this system.") from exc
     except Exception as exc:
-        raise RuntimeError(f"Printer error: {exc}") from exc
+        raise RuntimeError(f"Thermal printer is not connected or offline: {exc}") from exc
 
 
 def _write_receipt(p, sale):

@@ -62,7 +62,8 @@ export default function SalesHistoryPage() {
       await billingApi.printReceipt(saleId)
       showToast('Receipt sent to printer')
     } catch (err) {
-      showToast(err?.response?.data?.error || 'Printer not available', 'warning')
+      const errMsg = err?.response?.data?.error || 'Thermal printer is not connected or offline. Please check connection and settings.'
+      alert(`Print Failed:\n${errMsg}`)
     } finally {
       setPrintingId(null)
     }

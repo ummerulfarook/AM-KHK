@@ -346,6 +346,7 @@ export default function ReportsPage() {
                         <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Reference</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Particulars</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700 }}>Boxes</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700 }}>Income (₹)</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700 }}>Expense (₹)</TableCell>
                       </TableRow>
@@ -424,6 +425,9 @@ export default function ReportsPage() {
                               <TableCell sx={{ fontSize: '0.82rem' }}>{new Date(row.date).toLocaleDateString('en-IN')}</TableCell>
                               <TableCell sx={{ fontWeight: 600 }}>{row.reference}</TableCell>
                               <TableCell sx={{ fontSize: '0.82rem' }}>{row.particulars}</TableCell>
+                              <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.82rem' }}>
+                                {row.boxes > 0 ? `${row.boxes} Bx` : '—'}
+                              </TableCell>
                               <TableCell align="right" sx={{ color: tokens.emerald600, fontWeight: 700 }}>
                                 {row.income > 0 ? fmtRupees(row.income) : '—'}
                               </TableCell>

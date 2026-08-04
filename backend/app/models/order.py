@@ -71,6 +71,8 @@ class WholesaleOrderItem(db.Model):
     quantity: Mapped[float] = mapped_column(Float, nullable=False)
     unit_price: Mapped[int] = mapped_column(Integer, nullable=False)
     subtotal: Mapped[int] = mapped_column(Integer, nullable=False)
+    boxes: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
+    box_weight: Mapped[float | None] = mapped_column(Float, nullable=True, default=0.0)
 
     order = relationship("WholesaleOrder", back_populates="items")
     product = relationship("Product", back_populates="wholesale_items")
@@ -83,6 +85,8 @@ class WholesaleOrderItem(db.Model):
             "quantity": self.quantity,
             "unit": self.product.unit if self.product else None,
             "unitPrice": self.unit_price, "subtotal": self.subtotal,
+            "boxes": self.boxes or 0,
+            "boxWeight": self.box_weight or 0.0,
         }
 
 

@@ -12,6 +12,8 @@ class SaleItemRequest:
     product_id: int
     quantity: float
     unit_price: int  # paise
+    boxes: int = 0
+    box_weight: float = 0.0
 
     @property
     def subtotal(self) -> int:
@@ -53,10 +55,14 @@ class CreateSaleRequest:
                 if quantity == 0:
                     errors[f"items[{i}].quantity"] = "Quantity cannot be 0"
                 unit_price = _rupees_to_paise(raw.get("unitPrice", 0))
+                boxes = int(raw.get("boxes", 0))
+                box_weight = float(raw.get("boxWeight", 0.0))
                 items.append(SaleItemRequest(
                      product_id=product_id,
                      quantity=quantity,
                      unit_price=unit_price,
+                     boxes=boxes,
+                     box_weight=box_weight,
                 ))
             except (KeyError, TypeError, ValueError) as exc:
                 errors[f"items[{i}]"] = f"Invalid item data: {exc}"

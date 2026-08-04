@@ -570,7 +570,8 @@ def get_custom_report():
                 "date": s.created_at.isoformat(),
                 "particulars": f"Retail Sale ({s.payment_method.upper()})",
                 "income": s.total,
-                "expense": 0
+                "expense": 0,
+                "boxes": sum(item.boxes or 0 for item in s.items)
             })
         for e in expenses:
             rows.append({
@@ -579,7 +580,8 @@ def get_custom_report():
                 "date": datetime(e.expense_date.year, e.expense_date.month, e.expense_date.day).isoformat(),
                 "particulars": f"Expense: {e.category} ({e.notes or ''})",
                 "income": 0,
-                "expense": e.amount
+                "expense": e.amount,
+                "boxes": 0
             })
         for p in purchases:
             rows.append({
@@ -588,7 +590,8 @@ def get_custom_report():
                 "date": p.created_at.isoformat(),
                 "particulars": f"PO Purchase: {p.supplier.name if p.supplier else 'N/A'}",
                 "income": 0,
-                "expense": p.total_amount
+                "expense": p.total_amount,
+                "boxes": 0
             })
         for pay in payments:
             c_name = pay.credit_entry.customer.name if (pay.credit_entry and pay.credit_entry.customer) else "N/A"
@@ -604,7 +607,8 @@ def get_custom_report():
                 "date": pay.recorded_at.isoformat(),
                 "particulars": particulars,
                 "income": pay.amount,
-                "expense": 0
+                "expense": 0,
+                "boxes": 0
             })
             
         rows.sort(key=lambda x: x["date"], reverse=True)
