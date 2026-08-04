@@ -9,7 +9,6 @@ import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import AddShoppingCartRoundedIcon from '@mui/icons-material/AddShoppingCartRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
-import axios from 'axios'
 import api from '../../api/authApi'
 import { billingApi } from '../../api/billingApi'
 import StatusBadge from '../../components/common/StatusBadge'
@@ -63,54 +62,51 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
   const handleWhatsAppSend = async () => {
     setDownloading(true)
     try {
-      // 1. Generate & download the PDF Blob from the backend
+      // 1. Generate the PDF Blob from the backend
       const response = await api.get(`/api/billing/${sale.id}/pdf`, { responseType: 'blob' })
       const pdfBlob = response.data
+      const fileName = `${sale.invoiceNumber || sale.id}.pdf`
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
 
-      // 2. Upload to file.io
-      const formData = new FormData()
-      formData.append('file', pdfBlob, `${sale.invoiceNumber || sale.id}.pdf`)
-      
-      const uploadRes = await axios.post('https://file.io', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
+      // 2. Use Web Share API to share the PDF file directly
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          title: `Invoice ${sale.invoiceNumber}`,
+          text: `Invoice ${sale.invoiceNumber} — ${fmt(sale.total)}\nThank you for shopping at AM & KHK Vegetable Merchants!`,
+          files: [pdfFile],
+        })
+        showToast('Invoice shared successfully!')
+      } else {
+        // Fallback: download the PDF and open WhatsApp with text
+        const url = URL.createObjectURL(pdfBlob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        a.click()
+        URL.revokeObjectURL(url)
 
-      const downloadUrl = uploadRes.data.link
-
-      // 3. Generate WhatsApp text with download link
-      const text = encodeURIComponent(
-        `Dear ${sale.customerName || 'Customer'},\n\n` +
-        `Your invoice *${sale.invoiceNumber}* has been generated.\n` +
-        `Total Amount: *${fmt(sale.total)}*\n` +
-        `Click here to download your PDF Invoice:\n${downloadUrl}\n\n` +
-        `Thank you for shopping at AM & KHK Vegetable Merchants!`
-      )
-      const phone = sale.customerPhone ? sale.customerPhone.replace(/\D/g, '') : ''
-      const url = phone
-        ? `https://wa.me/91${phone}?text=${text}`
-        : `https://wa.me/?text=${text}`
-
-      window.open(url, '_blank')
-      showToast('WhatsApp link with PDF generated!')
+        const text = encodeURIComponent(
+          `Dear ${sale.customerName || 'Customer'},\n\n` +
+          `Your invoice *${sale.invoiceNumber}* has been generated.\n` +
+          `Total Amount: *${fmt(sale.total)}*\n` +
+          `The PDF invoice has been downloaded. Please share it manually.\n\n` +
+          `Thank you for shopping at AM & KHK Vegetable Merchants!`
+        )
+        const phone = sale.customerPhone ? sale.customerPhone.replace(/\D/g, '') : ''
+        const waUrl = phone
+          ? `https://wa.me/91${phone}?text=${text}`
+          : `https://wa.me/?text=${text}`
+        window.open(waUrl, '_blank')
+        showToast('PDF downloaded. Share it via WhatsApp.', 'info')
+      }
     } catch (err) {
-      console.error(err)
-      showToast('Failed to upload PDF, sending text details instead', 'warning')
-      
-      // Fallback
-      const text = encodeURIComponent(
-        `Dear ${sale.customerName || 'Customer'},\n\n` +
-        `Your invoice *${sale.invoiceNumber}* has been generated.\n` +
-        `Amount: *${fmt(sale.total)}*\n` +
-        `Payment: ${(sale.paymentMethod || '').toUpperCase()}\n\n` +
-        `Thank you for shopping at AM & KHK Vegetable Merchants!`
-      )
-      const phone = sale.customerPhone ? sale.customerPhone.replace(/\D/g, '') : ''
-      const url = phone
-        ? `https://wa.me/91${phone}?text=${text}`
-        : `https://wa.me/?text=${text}`
-      window.open(url, '_blank')
+      // User may have cancelled the share dialog — that's fine
+      if (err?.name === 'AbortError') {
+        showToast('Share cancelled', 'info')
+      } else {
+        console.error(err)
+        showToast('Failed to share PDF', 'error')
+      }
     } finally {
       setDownloading(false)
     }
