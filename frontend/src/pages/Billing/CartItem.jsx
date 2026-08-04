@@ -9,26 +9,16 @@ import { tokens } from '../../theme/theme'
  * CartItem — a single row in the POS cart.
  *
  * Props:
- *  item       { productId, name, unit, qty, unitPrice, subtotal, boxes, boxWeight }
+ *  item       { productId, name, unit, qty, unitPrice, subtotal }
  *  onQtyChange(productId, newQty)
  *  onPriceChange(productId, newPrice)  — price in rupees
  *  onRemove(productId)
- *  onBoxesChange(productId, boxes, boxWeight, calculatedQty)
  */
-export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, onEnterPress, onBoxesChange }) {
-  const [localBoxes, setLocalBoxes] = useState(item.boxes ? item.boxes.toString() : '')
-  const [localBoxWeight, setLocalBoxWeight] = useState(item.boxWeight ? item.boxWeight.toString() : '')
+export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, onEnterPress }) {
   const [localQty, setLocalQty] = useState(item.qty.toString())
   const [localPrice, setLocalPrice] = useState((item.unitPrice / 100).toString())
 
-  useEffect(() => {
-    setLocalBoxes(item.boxes ? item.boxes.toString() : '')
-  }, [item.boxes])
-
-  useEffect(() => {
-    setLocalBoxWeight(item.boxWeight ? item.boxWeight.toString() : '')
-  }, [item.boxWeight])
-
+  // Keep local state in sync when item props change from outside (e.g. barcode scan, quick add)
   useEffect(() => {
     setLocalQty(item.qty.toString())
   }, [item.qty])
@@ -39,71 +29,32 @@ export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, o
 
   const subtotalRs = ((item.qty * item.unitPrice) / 100).toFixed(2)
 
-  const handleBoxesChangeLocal = (newBoxesStr, newWeightStr) => {
-    setLocalBoxes(newBoxesStr)
-    setLocalBoxWeight(newWeightStr)
-    const boxes = parseInt(newBoxesStr)
-    const weight = parseFloat(newWeightStr)
-    if (!isNaN(boxes) && !isNaN(weight) && boxes >= 0 && weight >= 0) {
-      const calculatedQty = boxes * weight
-      onBoxesChange(item.productId, boxes, weight, calculatedQty)
-    } else if (newBoxesStr === '' && newWeightStr === '') {
-      onBoxesChange(item.productId, 0, 0.0, item.qty)
-    }
-  }
-
   return (
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: '1.4fr 65px 70px 75px 85px 70px 36px',
-        gap: 0.75,
+        gridTemplateColumns: '1fr 80px 100px 80px 36px',
+        gap: 1,
         alignItems: 'center',
-        py: 0.75,
+        py: 1,
         borderBottom: `1px solid ${tokens.border}`,
         '&:last-child': { borderBottom: 'none' },
       }}
     >
       {/* Product name */}
       <Box>
-        <Typography sx={{ fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.2 }}>
+        <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.3 }}>
           {item.name}
         </Typography>
-        <Typography sx={{ fontSize: '0.7rem', color: tokens.textSecondary, display: 'inline' }}>
+        <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary, display: 'inline' }}>
           per {item.unit}
         </Typography>
         {item.qty > item.availableStock && (
-          <Typography sx={{ color: tokens.amber500, fontSize: '0.68rem', fontWeight: 600, display: 'block', mt: 0.1 }}>
-            ⚠️ Low Stock ({item.availableStock})
+          <Typography sx={{ color: tokens.amber500, fontSize: '0.7rem', fontWeight: 600, display: 'block', mt: 0.25 }}>
+            ⚠️ Stock warning (Available: {item.availableStock})
           </Typography>
         )}
       </Box>
-
-      {/* Boxes */}
-      <TextField
-        placeholder="Box"
-        size="small"
-        type="text"
-        inputMode="numeric"
-        value={localBoxes}
-        onChange={(e) => handleBoxesChangeLocal(e.target.value, localBoxWeight)}
-        sx={{
-          '& .MuiInputBase-input': { fontSize: '0.8rem', textAlign: 'center', p: 0.5 },
-        }}
-      />
-
-      {/* Wt/Box */}
-      <TextField
-        placeholder="Wt/Bx"
-        size="small"
-        type="text"
-        inputMode="decimal"
-        value={localBoxWeight}
-        onChange={(e) => handleBoxesChangeLocal(localBoxes, e.target.value)}
-        sx={{
-          '& .MuiInputBase-input': { fontSize: '0.8rem', textAlign: 'center', p: 0.5 },
-        }}
-      />
 
       {/* Quantity */}
       <TextField
@@ -132,11 +83,11 @@ export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, o
           }
         }}
         sx={{
-          '& .MuiInputBase-input': { fontSize: '0.8rem', textAlign: 'center', p: 0.5 },
+          '& .MuiInputBase-input': { fontSize: '0.85rem', textAlign: 'center', py: 0.75 },
         }}
       />
 
-      {/* Unit price */}
+      {/* Unit price (in rupees for display) */}
       <TextField
         id={`cart-price-${item.productId}`}
         size="small"
@@ -163,12 +114,12 @@ export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, o
           }
         }}
         sx={{
-          '& .MuiInputBase-input': { fontSize: '0.8rem', textAlign: 'right', p: 0.5 },
+          '& .MuiInputBase-input': { fontSize: '0.85rem', textAlign: 'right', py: 0.75 },
         }}
       />
 
       {/* Subtotal */}
-      <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', textAlign: 'right', color: tokens.emerald600 }}>
+      <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', textAlign: 'right', color: tokens.emerald600 }}>
         ₹{subtotalRs}
       </Typography>
 
@@ -178,7 +129,7 @@ export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, o
           id={`cart-remove-${item.productId}`}
           size="small"
           onClick={() => onRemove(item.productId)}
-          sx={{ color: tokens.red500, p: 0.5 }}
+          sx={{ color: tokens.red500 }}
         >
           <DeleteRoundedIcon fontSize="small" />
         </IconButton>

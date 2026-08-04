@@ -388,22 +388,7 @@ export default function BillingPage() {
   }, [products, highlightedIndex, addToCart])
 
   const updateQty = useCallback((productId, qty) => {
-    setCart(prev => prev.map(i => i.productId === productId ? { ...i, qty, boxes: 0, boxWeight: 0.0 } : i))
-  }, [])
-
-  const handleBoxesChange = useCallback((productId, boxes, boxWeight, qty) => {
-    setCart(prev => {
-      const mainItem = prev.find(i => i.productId === productId)
-      return prev.map(i => {
-        if (i.productId === productId) {
-          return { ...i, boxes, boxWeight, qty }
-        }
-        if (mainItem && mainItem.addonProductId && i.productId === mainItem.addonProductId) {
-          return { ...i, qty: boxes }
-        }
-        return i
-      })
-    })
+    setCart(prev => prev.map(i => i.productId === productId ? { ...i, qty } : i))
   }, [])
 
   const updatePrice = useCallback((productId, priceRs) => {
@@ -530,8 +515,6 @@ export default function BillingPage() {
         productId: i.productId,
         quantity: i.qty,
         unitPrice: i.unitPrice / 100,  // send as rupees; backend converts
-        boxes: i.boxes || 0,
-        boxWeight: i.boxWeight || 0.0,
       })),
       paymentMethod,
       upiId: selectedUpiAccount || null,
@@ -823,19 +806,19 @@ export default function BillingPage() {
                   <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: '1.4fr 65px 70px 75px 85px 70px 36px',
-                      gap: 0.75,
+                      gridTemplateColumns: '1fr 80px 100px 80px 36px',
+                      gap: 1,
                       pb: 0.75,
                       mb: 0.5,
                       borderBottom: `2px solid ${tokens.border}`,
                     }}
                   >
-                    {['Product', 'Box', 'Wt/Bx', 'Qty', 'Rate (₹)', 'Total', ''].map((h, i) => (
+                    {['Product', 'Qty', 'Rate (₹)', 'Total', ''].map((h, i) => (
                       <Typography
                         key={i}
                         sx={{
-                          fontSize: '0.68rem',
-                          fontWeight: 700,
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
                           color: tokens.textSecondary,
                           textTransform: 'uppercase',
                           textAlign: i > 0 ? 'right' : 'left',
@@ -852,7 +835,6 @@ export default function BillingPage() {
                       onQtyChange={updateQty}
                       onPriceChange={updatePrice}
                       onRemove={removeFromCart}
-                      onBoxesChange={handleBoxesChange}
                       onEnterPress={() => searchRef.current?.focus()}
                     />
                   ))}

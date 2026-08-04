@@ -274,9 +274,6 @@
           {% if item.product and item.product.unit %}
             <span style="font-size: 9.5px; font-weight: 600; color: #000000; margin-left: 1px;">{{ item.product.unit }}</span>
           {% endif %}
-          {% if item.boxes and item.boxes > 0 %}
-            <div style="font-size: 9px; font-weight: 700; color: #000000;">({{ item.boxes }} Bx)</div>
-          {% endif %}
         </td>
         <td style="text-align: right; font-weight: 800; font-size: 12.5px; white-space: nowrap; color: #000000;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
       </tr>
@@ -286,18 +283,6 @@
 
   <!-- Totals -->
   <div class="totals">
-    {% set total_boxes = namespace(value=0) %}
-    {% for item in sale.items %}
-      {% if item.boxes %}
-        {% set total_boxes.value = total_boxes.value + item.boxes %}
-      {% endif %}
-    {% endfor %}
-    {% if total_boxes.value > 0 %}
-    <div class="totals-row" style="font-size: 13px; font-weight: 600; color: #000000; margin-bottom: 5px;">
-      <span class="totals-label">Total Boxes</span>
-      <span>{{ total_boxes.value }} Bx</span>
-    </div>
-    {% endif %}
     {% if sale.discount > 0 %}
     <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
       <span class="totals-label">Discount</span>
