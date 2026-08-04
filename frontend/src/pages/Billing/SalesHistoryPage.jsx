@@ -15,6 +15,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import { billingApi } from '../../api/billingApi'
 import { inventoryApi } from '../../api/inventoryApi'
 import StatusBadge from '../../components/common/StatusBadge'
@@ -314,6 +315,23 @@ export default function SalesHistoryPage() {
                           <PictureAsPdfRoundedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      <Tooltip title="Download PDF Invoice">
+                        <IconButton
+                          id={`btn-download-pdf-${sale.id}`}
+                          size="small"
+                          color="primary"
+                          onClick={async () => {
+                            try {
+                              await billingApi.downloadInvoice(sale.id, sale.invoiceNumber)
+                            } catch (e) {
+                              alert('Download failed')
+                            }
+                          }}
+                          sx={{ ml: 0.5 }}
+                        >
+                          <DownloadRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Delete Invoice">
                         <IconButton
                           id={`btn-delete-sale-${sale.id}`}
@@ -439,7 +457,22 @@ export default function SalesHistoryPage() {
               )}
             </DialogContent>
             <Divider />
-            <DialogActions sx={{ px: 3, py: 1.5 }}>
+            <DialogActions sx={{ px: 3, py: 1.5, gap: 1.5 }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={async () => {
+                  try {
+                    await billingApi.downloadInvoice(selectedSale.id, selectedSale.invoiceNumber)
+                  } catch (e) {
+                    alert('Download failed')
+                  }
+                }}
+                startIcon={<DownloadRoundedIcon />}
+                sx={{ borderRadius: '10px' }}
+              >
+                Download PDF
+              </Button>
               <Button onClick={() => setSelectedSale(null)} variant="contained" sx={{ borderRadius: '10px' }}>
                 Close
               </Button>
