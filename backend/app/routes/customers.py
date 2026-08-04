@@ -665,13 +665,16 @@ def download_customer_ledger_pdf(cust_id: int):
     def fmt_rupees(paise):
         return '₹' + f"{paise / 100:,.2f}"
 
+    import os
+    roboto_font_path = os.path.abspath("backend/app/static/fonts/Roboto-Regular.ttf").replace("\\", "/")
     html_content = render_template(
         "customer_ledger_pdf.html",
         customer=customer,
         generated_at=datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%d-%m-%Y %H:%M"),
         period=period_str,
         rows=history,
-        fmtRupees=fmt_rupees
+        fmtRupees=fmt_rupees,
+        roboto_font_path=roboto_font_path
     )
 
     try:

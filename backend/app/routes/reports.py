@@ -1229,6 +1229,8 @@ def download_pdf_report():
 
     # Render Jinja template to PDF
     from flask import render_template
+    import os
+    roboto_font_path = os.path.abspath("backend/app/static/fonts/Roboto-Regular.ttf").replace("\\", "/")
     html_content = render_template(
         "report_pdf.html",
         title=title,
@@ -1238,7 +1240,8 @@ def download_pdf_report():
         headers=headers,
         rows=rows,
         summary=summary,
-        fmtRupees=fmt_rupees
+        fmtRupees=fmt_rupees,
+        roboto_font_path=roboto_font_path
     )
 
     from app.services.invoice_service import generate_invoice_pdf

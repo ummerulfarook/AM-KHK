@@ -519,6 +519,17 @@ export default function SettingsPage() {
                     Add
                   </Button>
                 </Stack>
+                <Divider sx={{ my: 2 }} />
+                <Button
+                  id="btn-save-upi"
+                  variant="contained"
+                  startIcon={<SaveRoundedIcon />}
+                  disabled={saveSettingsMutation.isPending}
+                  onClick={handleSaveUpiAccounts}
+                  sx={{ alignSelf: 'flex-start', borderRadius: '10px' }}
+                >
+                  Save UPI Config
+                </Button>
               </Stack>
             )}
           </CardContent>

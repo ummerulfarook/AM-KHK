@@ -11,6 +11,27 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 import base64
 
+# xhtml2pdf NamedTemporaryFile monkeypatch to fix Windows permission locking bugs
+try:
+    import tempfile
+    from xhtml2pdf.files import BaseFile, files_tmp
+    
+    def patched_get_named_tmp_file(self):
+        data = self.get_data()
+        tmp_file = tempfile.NamedTemporaryFile(suffix=self.suffix, delete=False)
+        if data:
+            tmp_file.write(data)
+            tmp_file.flush()
+            tmp_file.close()  # Close the file descriptor so ReportLab can read it on Windows
+            files_tmp.append(tmp_file)
+        if self.path is None:
+            self.path = tmp_file.name
+        return tmp_file
+        
+    BaseFile.get_named_tmp_file = patched_get_named_tmp_file
+except Exception:
+    pass
+
 # Locate the templates folder relative to this file
 _TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 
@@ -55,17 +76,20 @@ def render_invoice_html(sale, settings: dict) -> str:
 def render_invoice_pdf_html(sale, settings: dict) -> str:
     """Render the PDF-specific invoice template (xhtml2pdf-compatible, no flexbox)."""
     from datetime import timezone, timedelta
+    import os
     ist_tz = timezone(timedelta(hours=5, minutes=30))
     created_at_ist = sale.created_at.astimezone(ist_tz)
     formatted_date = created_at_ist.strftime("%d %b %Y")
 
     tpl = _jinja_env.get_template("invoice_pdf.html")
     logo_base64 = _get_logo_base64()
+    roboto_font_path = os.path.abspath("backend/app/static/fonts/Roboto-Regular.ttf").replace("\\", "/")
     return tpl.render(
         sale=sale,
         settings=settings,
         logo_base64=logo_base64,
-        formatted_date=formatted_date
+        formatted_date=formatted_date,
+        roboto_font_path=roboto_font_path
     )
 
 
