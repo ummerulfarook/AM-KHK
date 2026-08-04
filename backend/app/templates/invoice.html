@@ -18,8 +18,9 @@
 
     .page {
       width: 98mm;
-      padding: 8mm 6mm;
-      margin: 0;
+      padding: 6mm 4mm;
+      margin: 0 auto;
+      border-left: 1.5px dashed #0E3A2A;
       border-right: 1.5px dashed #0E3A2A;
       min-height: 140mm;
     }
@@ -70,8 +71,8 @@
       background: #EEF5F0;
       border: 1px solid #c2d1c7;
       border-radius: 8px;
-      padding: 8px 12px;
-      margin-bottom: 12px;
+      padding: 5px 8px;
+      margin-bottom: 8px;
     }
     .customer-label {
       font-size: 9px;
@@ -96,16 +97,16 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     thead th {
       background: #EEF5F0;
       color: #0E3A2A;
-      font-size: 12px;
+      font-size: 10.5px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      padding: 6px 8px;
+      padding: 4px 6px;
       text-align: left;
       border-bottom: 2.5px solid #0E3A2A;
     }
@@ -115,8 +116,8 @@
     thead th:nth-child(4) { text-align: right; }
 
     tbody td {
-      padding: 6px 8px;
-      font-size: 13.5px;
+      padding: 4px 6px;
+      font-size: 11.5px;
       border-bottom: 1.5px solid #0F2419;
       color: #0F2419;
     }
@@ -129,9 +130,9 @@
     .totals {
       margin-left: auto;
       width: 58%;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       border-top: 1.5px solid #059669;
-      padding-top: 8px;
+      padding-top: 6px;
     }
     .totals-row {
       display: flex;
@@ -217,7 +218,7 @@
     <!-- Row 1: Logo & Shop Name -->
     <div class="header-row1">
       {% if logo_base64 %}
-        <img src="{{ logo_base64 }}" style="max-height: 44px; border-radius: 6px;" alt="AM & KHK Logo" />
+        <img src="{{ logo_base64 }}" style="max-height: 44px; border-radius: 6px; filter: contrast(1.4) brightness(0.7);" alt="AM & KHK Logo" />
       {% endif %}
       <div class="shop-name">AM & KHK Vegetable Merchants</div>
     </div>
@@ -265,15 +266,17 @@
     <tbody>
       {% for item in sale.items %}
       <tr>
-        <td style="text-align: left; white-space: nowrap; font-size: 14px; font-weight: 600; color: #000000;">₹{{ "%.2f"|format(item.unit_price / 100) }}</td>
+        <td style="text-align: left; white-space: nowrap; font-size: 12px; font-weight: 600; color: #000000;">₹{{ "%.2f"|format(item.unit_price / 100) }}</td>
         <td style="text-align: left;">
-          <strong style="font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">{{ item.product.name if item.product else '—' }}</strong>
+          <strong style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">{{ item.product.name if item.product else '—' }}</strong>
+        </td>
+        <td style="text-align: right; font-size: 12px; font-weight: 600; color: #000000; white-space: nowrap;">
+          {{ item.quantity }}
           {% if item.product and item.product.unit %}
-            <span style="font-size:11px;color:#000000;font-weight:600;">({{ item.product.unit }})</span>
+            <span style="font-size: 9.5px; font-weight: 600; color: #000000; margin-left: 1px;">{{ item.product.unit }}</span>
           {% endif %}
         </td>
-        <td style="text-align: right; font-size: 14px; font-weight: 600; color: #000000;">{{ item.quantity }}</td>
-        <td style="text-align: right; font-weight: 800; font-size: 15px; white-space: nowrap; color: #000000;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
+        <td style="text-align: right; font-weight: 800; font-size: 12.5px; white-space: nowrap; color: #000000;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -281,10 +284,6 @@
 
   <!-- Totals -->
   <div class="totals">
-    <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
-      <span class="totals-label">Subtotal</span>
-      <span>₹{{ "%.2f"|format(sale.subtotal / 100) }}</span>
-    </div>
     {% if sale.discount > 0 %}
     <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
       <span class="totals-label">Discount</span>
@@ -315,9 +314,9 @@
       <span class="totals-label">Bill Left</span>
       <span>₹{{ "%.2f"|format(bill_left / 100) }}</span>
     </div>
-    <div class="totals-row" style="font-size: 14.5px; font-weight: 700; color: #000000;">
+    <div class="totals-row" style="font-size: 15px; font-weight: 800; color: #000000;">
       <span class="totals-label">Total Due</span>
-      <span style="font-weight: 800; color: #E5484D;">₹{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</span>
+      <span style="font-weight: 900; color: #000000; font-size: 16.5px;">₹{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</span>
     </div>
     {% endif %}
   </div>
