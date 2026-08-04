@@ -20,6 +20,19 @@ from app.utils.role_guard import require_roles
 reports_bp = Blueprint("reports", __name__, url_prefix="/api/reports")
 
 
+def local_date_to_utc_range(target_date: date) -> tuple[datetime, datetime]:
+    """Convert a local date (IST) to the starting and ending UTC datetimes."""
+    # Start of local day is 18:30 of the previous day in UTC
+    local_start = datetime.combine(target_date, datetime.min.time())
+    utc_start = (local_start - timedelta(hours=5, minutes=30)).replace(tzinfo=timezone.utc)
+    
+    # End of local day is 18:29:59 of the target day in UTC
+    local_end = datetime.combine(target_date, datetime.max.time())
+    utc_end = (local_end - timedelta(hours=5, minutes=30)).replace(tzinfo=timezone.utc)
+    
+    return utc_start, utc_end
+
+
 def _get_date_filters():
     date_from = request.args.get("dateFrom")
     date_to = request.args.get("dateTo")
@@ -29,14 +42,26 @@ def _get_date_filters():
 
     if date_from:
         try:
-            start_date = datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+            # Parse YYYY-MM-DD
+            parsed_from = date.fromisoformat(date_from)
+            start_date, _ = local_date_to_utc_range(parsed_from)
         except ValueError:
-            pass
+            try:
+                # Fallback if datetime string is sent
+                dt = datetime.fromisoformat(date_from)
+                start_date, _ = local_date_to_utc_range(dt.date())
+            except ValueError:
+                pass
     if date_to:
         try:
-            end_date = datetime.fromisoformat(date_to).replace(tzinfo=timezone.utc)
+            parsed_to = date.fromisoformat(date_to)
+            _, end_date = local_date_to_utc_range(parsed_to)
         except ValueError:
-            pass
+            try:
+                dt = datetime.fromisoformat(date_to)
+                _, end_date = local_date_to_utc_range(dt.date())
+            except ValueError:
+                pass
 
     return start_date, end_date
 
@@ -465,33 +490,47 @@ def get_custom_report():
         target_date = date.today()
 
     if report_type == "daily":
-        start_date = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=timezone.utc)
-        end_date = datetime(target_date.year, target_date.month, target_date.day, 23, 59, 59, tzinfo=timezone.utc)
+        start_date, end_date = local_date_to_utc_range(target_date)
     elif report_type == "monthly":
-        start_date = datetime(target_date.year, target_date.month, 1, 0, 0, 0, tzinfo=timezone.utc)
-        next_month = target_date.month + 1 if target_date.month < 12 else 1
-        next_month_year = target_date.year if target_date.month < 12 else target_date.year + 1
-        end_date = datetime(next_month_year, next_month, 1, 23, 59, 59, tzinfo=timezone.utc) - timedelta(days=1)
+        start_day = date(target_date.year, target_date.month, 1)
+        if target_date.month == 12:
+            end_day = date(target_date.year, 12, 31)
+        else:
+            end_day = date(target_date.year, target_date.month + 1, 1) - timedelta(days=1)
+        start_date, _ = local_date_to_utc_range(start_day)
+        _, end_date = local_date_to_utc_range(end_day)
     elif report_type == "yearly":
         if target_date.month >= 4:
             fy_start_year = target_date.year
         else:
             fy_start_year = target_date.year - 1
-        start_date = datetime(fy_start_year, 4, 1, 0, 0, 0, tzinfo=timezone.utc)
-        end_date = datetime(fy_start_year + 1, 3, 31, 23, 59, 59, tzinfo=timezone.utc)
+        start_day = date(fy_start_year, 4, 1)
+        end_day = date(fy_start_year + 1, 3, 31)
+        start_date, _ = local_date_to_utc_range(start_day)
+        _, end_date = local_date_to_utc_range(end_day)
     else:
         df = request.args.get("dateFrom")
         dt = request.args.get("dateTo")
         if df:
             try:
-                start_date = datetime.fromisoformat(df).replace(tzinfo=timezone.utc)
+                parsed_df = date.fromisoformat(df)
+                start_date, _ = local_date_to_utc_range(parsed_df)
             except ValueError:
-                pass
+                try:
+                    parsed_df = datetime.fromisoformat(df).date()
+                    start_date, _ = local_date_to_utc_range(parsed_df)
+                except ValueError:
+                    pass
         if dt:
             try:
-                end_date = datetime.fromisoformat(dt).replace(tzinfo=timezone.utc)
+                parsed_dt = date.fromisoformat(dt)
+                _, end_date = local_date_to_utc_range(parsed_dt)
             except ValueError:
-                pass
+                try:
+                    parsed_dt = datetime.fromisoformat(dt).date()
+                    _, end_date = local_date_to_utc_range(parsed_dt)
+                except ValueError:
+                    pass
 
     if report_type in ("daily", "monthly", "yearly"):
         s_stmt = db.select(RetailSale)

@@ -19,10 +19,17 @@ dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/api/dashboard")
 
 
 def _today_range(now_dt: datetime) -> tuple[datetime, datetime]:
-    """Return (start_of_today, end_of_today) as UTC-aware datetimes."""
-    start = now_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-    end = now_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
-    return start, end
+    """Return (start_of_today, end_of_today) as UTC-aware datetimes aligned to IST."""
+    local_dt = now_dt + timedelta(hours=5, minutes=30)
+    local_date = local_dt.date()
+    
+    local_start = datetime.combine(local_date, datetime.min.time())
+    utc_start = (local_start - timedelta(hours=5, minutes=30)).replace(tzinfo=timezone.utc)
+    
+    local_end = datetime.combine(local_date, datetime.max.time())
+    utc_end = (local_end - timedelta(hours=5, minutes=30)).replace(tzinfo=timezone.utc)
+    
+    return utc_start, utc_end
 
 
 @dashboard_bp.route("/", methods=["GET"])
@@ -35,7 +42,7 @@ def get_dashboard():
     from app.utils.date_helper import get_working_date
     working_dt = get_working_date()
     today_start, today_end = _today_range(working_dt)
-    today_date = working_dt.date()
+    today_date = (working_dt + timedelta(hours=5, minutes=30)).date()
 
     # ── Today's retail sales ────────────────────────────────────────────────
     retail_today = db.session.execute(
@@ -85,8 +92,13 @@ def get_dashboard():
     weekly_sales = []
     for i in range(6, -1, -1):
         day = today_date - timedelta(days=i)
-        day_start = datetime.combine(day, datetime.min.time()).replace(tzinfo=timezone.utc)
-        day_end = datetime.combine(day, datetime.max.time()).replace(tzinfo=timezone.utc)
+        
+        # Align day start and end to UTC boundaries from IST
+        local_start = datetime.combine(day, datetime.min.time())
+        day_start = (local_start - timedelta(hours=5, minutes=30)).replace(tzinfo=timezone.utc)
+        
+        local_end = datetime.combine(day, datetime.max.time())
+        day_end = (local_end - timedelta(hours=5, minutes=30)).replace(tzinfo=timezone.utc)
 
         retail_day = db.session.execute(
             db.select(func.coalesce(func.sum(RetailSale.total), 0))
