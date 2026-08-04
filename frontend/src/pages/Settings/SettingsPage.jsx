@@ -209,13 +209,17 @@ export default function SettingsPage() {
     setUpiAccounts(updated)
     setNewUpiName('')
     setNewUpiId('')
-    showToast('UPI Account added. Don\'t forget to Save Settings!', 'info')
+    saveSettingsMutation.mutate({
+      upi_accounts: JSON.stringify(updated)
+    })
   }
 
   const handleDeleteUpiAccount = (index) => {
     const updated = upiAccounts.filter((_, i) => i !== index)
     setUpiAccounts(updated)
-    showToast('UPI Account removed. Don\'t forget to Save Settings!', 'info')
+    saveSettingsMutation.mutate({
+      upi_accounts: JSON.stringify(updated)
+    })
   }
 
   const handleSaveBankAccounts = (e) => {
@@ -238,13 +242,17 @@ export default function SettingsPage() {
     setBankAccounts(updated)
     setNewBankName('')
     setNewBankAccountNum('')
-    showToast('Bank Account added. Don\'t forget to Save Settings!', 'info')
+    saveSettingsMutation.mutate({
+      bank_accounts: JSON.stringify(updated)
+    })
   }
 
   const handleDeleteBankAccount = (index) => {
     const updated = bankAccounts.filter((_, i) => i !== index)
     setBankAccounts(updated)
-    showToast('Bank Account removed. Don\'t forget to Save Settings!', 'info')
+    saveSettingsMutation.mutate({
+      bank_accounts: JSON.stringify(updated)
+    })
   }
 
   const handleOpenAddUser = () => {
