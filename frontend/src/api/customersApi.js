@@ -27,4 +27,17 @@ export const customersApi = {
 
   /** POST /api/customers/:id/pay — Record general payment for dues */
   recordCustomerPayment: (id, data) => api.post(`/api/customers/${id}/pay`, data).then(r => r.data),
+
+  /** GET /api/customers/:id/ledger-pdf — Download PDF statement ledger */
+  downloadCustomerLedgerPdf: async (id, params = {}, customerName) => {
+    const response = await api.get(`/api/customers/${id}/ledger-pdf`, { params, responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `statement_${customerName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  },
 }

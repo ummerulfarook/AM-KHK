@@ -3,7 +3,7 @@ Customers blueprint — full implementation for CRM (Milestone 4).
 """
 from datetime import datetime, date, timedelta, timezone
 from decimal import Decimal
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from flask_login import login_required, current_user
 from sqlalchemy import func, or_
 from app import db
@@ -563,4 +563,125 @@ def delete_customer(customer_id: int):
     except Exception as exc:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete customer: {exc}"}), 500
+
+
+@customers_bp.route("/<int:cust_id>/ledger-pdf", methods=["GET"])
+@login_required
+def download_customer_ledger_pdf(cust_id: int):
+    """Generate and stream a PDF customer statement ledger."""
+    customer = db.session.get(Customer, cust_id)
+    if not customer:
+        return jsonify({"error": "Customer not found"}), 404
+
+    date_from = request.args.get("dateFrom")
+    date_to = request.args.get("dateTo")
+
+    # Fetch retail sales
+    stmt_rs = db.select(RetailSale).where(RetailSale.customer_id == cust_id)
+    if date_from:
+        stmt_rs = stmt_rs.where(RetailSale.created_at >= f"{date_from} 00:00:00")
+    if date_to:
+        stmt_rs = stmt_rs.where(RetailSale.created_at <= f"{date_to} 23:59:59")
+    retail_sales = db.session.execute(stmt_rs).scalars().all()
+
+    # Fetch wholesale orders
+    stmt_wo = db.select(WholesaleOrder).where(WholesaleOrder.customer_id == cust_id)
+    if date_from:
+        stmt_wo = stmt_wo.where(WholesaleOrder.created_at >= f"{date_from} 00:00:00")
+    if date_to:
+        stmt_wo = stmt_wo.where(WholesaleOrder.created_at <= f"{date_to} 23:59:59")
+    wholesale_orders = db.session.execute(stmt_wo).scalars().all()
+
+    # Combine & format
+    history = []
+    for rs in retail_sales:
+        payment_status = "paid"
+        amount_paid = rs.total
+        balance = 0
+        if rs.payment_method == "credit":
+            ledger = db.session.execute(
+                db.select(CreditLedger).where(CreditLedger.sale_id == rs.id)
+            ).scalars().first()
+            if ledger:
+                payment_status = ledger.status
+                amount_paid = ledger.amount_paid
+                balance = ledger.amount - ledger.amount_paid
+            else:
+                payment_status = "credit"
+                amount_paid = 0
+                balance = rs.total
+
+        history.append({
+            "date": rs.created_at.strftime("%d-%m-%Y %H:%M"),
+            "type": "retail",
+            "invoiceNumber": rs.invoice_number or f"RS-{rs.id}",
+            "total": rs.total,
+            "paymentMethod": rs.payment_method,
+            "paymentStatus": payment_status,
+            "amountPaid": amount_paid,
+            "balance": balance,
+            "createdAt": rs.created_at
+        })
+
+    for wo in wholesale_orders:
+        payment_status = "paid"
+        amount_paid = wo.total_amount
+        balance = 0
+        if wo.payment_method == "credit":
+            ledger = db.session.execute(
+                db.select(CreditLedger).where(CreditLedger.wholesale_order_id == wo.id)
+            ).scalars().first()
+            if ledger:
+                payment_status = ledger.status
+                amount_paid = ledger.amount_paid
+                balance = ledger.amount - ledger.amount_paid
+            else:
+                payment_status = "credit"
+                amount_paid = 0
+                balance = wo.total_amount
+
+        history.append({
+            "date": wo.created_at.strftime("%d-%m-%Y %H:%M"),
+            "type": "wholesale",
+            "invoiceNumber": f"WO-{wo.id:04d}",
+            "total": wo.total_amount,
+            "paymentMethod": wo.payment_method or "credit",
+            "paymentStatus": payment_status,
+            "amountPaid": amount_paid,
+            "balance": balance,
+            "createdAt": wo.created_at
+        })
+
+    # Sort desc by date
+    history.sort(key=lambda x: x["createdAt"], reverse=True)
+
+    period_str = f"{date_from or 'Start'} to {date_to or 'End'}"
+    
+    # Render PDF statement
+    from flask import render_template
+    import io
+    from app.services.invoice_service import generate_invoice_pdf
+    
+    def fmt_rupees(paise):
+        return '₹' + f"{paise / 100:,.2f}"
+
+    html_content = render_template(
+        "customer_ledger_pdf.html",
+        customer=customer,
+        generated_at=datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%d-%m-%Y %H:%M"),
+        period=period_str,
+        rows=history,
+        fmtRupees=fmt_rupees
+    )
+
+    try:
+        pdf_bytes = generate_invoice_pdf(html_content)
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"statement_{customer.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate customer ledger PDF: {e}"}), 500
 

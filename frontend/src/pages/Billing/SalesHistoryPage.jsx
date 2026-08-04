@@ -16,6 +16,7 @@ import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import { billingApi } from '../../api/billingApi'
 import { inventoryApi } from '../../api/inventoryApi'
 import StatusBadge from '../../components/common/StatusBadge'
@@ -67,6 +68,26 @@ export default function SalesHistoryPage() {
       alert(`Print Failed:\n${errMsg}`)
     } finally {
       setPrintingId(null)
+    }
+  }
+
+  const handleWhatsAppShare = async (sale) => {
+    try {
+      await billingApi.downloadInvoice(sale.id, sale.invoiceNumber)
+      const text = encodeURIComponent(
+        `Dear ${sale.customerName || sale.customer?.name || 'Customer'},\n\n` +
+        `Your invoice *${sale.invoiceNumber}* has been generated.\n` +
+        `Total Amount: *${fmt(sale.total)}*\n` +
+        `The PDF invoice has been downloaded. Please share it manually.\n\n` +
+        `Thank you for shopping at AM & KHK Vegetable Merchants!`
+      )
+      const phone = (sale.customerPhone || sale.customer?.phone || '').replace(/\D/g, '')
+      const waUrl = phone
+        ? `https://wa.me/91${phone}?text=${text}`
+        : `https://wa.me/?text=${text}`
+      window.open(waUrl, '_blank')
+    } catch (err) {
+      alert('Failed to process WhatsApp share')
     }
   }
 
@@ -332,6 +353,16 @@ export default function SalesHistoryPage() {
                           <DownloadRoundedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      <Tooltip title="Send via WhatsApp">
+                        <IconButton
+                          id={`btn-wa-sale-${sale.id}`}
+                          size="small"
+                          sx={{ ml: 0.5, color: '#25D366' }}
+                          onClick={() => handleWhatsAppShare(sale)}
+                        >
+                          <WhatsAppIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Delete Invoice">
                         <IconButton
                           id={`btn-delete-sale-${sale.id}`}
@@ -458,6 +489,19 @@ export default function SalesHistoryPage() {
             </DialogContent>
             <Divider />
             <DialogActions sx={{ px: 3, py: 1.5, gap: 1.5 }}>
+              <Button
+                variant="outlined"
+                sx={{
+                  borderRadius: '10px',
+                  borderColor: '#25D366',
+                  color: '#25D366',
+                  '&:hover': { borderColor: '#128C7E', background: alpha('#25D366', 0.05) },
+                }}
+                onClick={() => handleWhatsAppShare(selectedSale)}
+                startIcon={<WhatsAppIcon />}
+              >
+                Send via WhatsApp
+              </Button>
               <Button
                 variant="outlined"
                 color="primary"

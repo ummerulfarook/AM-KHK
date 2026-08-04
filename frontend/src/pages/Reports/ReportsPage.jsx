@@ -9,6 +9,7 @@ import {
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded'
 import { reportsApi } from '../../api/reportsApi'
 import { tokens } from '../../theme/theme'
@@ -34,6 +35,7 @@ export default function ReportsPage() {
   const [dateTo, setDateTo] = useState(workingDate)
   const [targetDate, setTargetDate] = useState(defaultDate)
   const [exporting, setExporting] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
   const [reportType, setReportType] = useState('daily') // daily, monthly, yearly, expense, credit, purchase, purchase_payment
 
   // Optional customer filter
@@ -115,6 +117,22 @@ export default function ReportsPage() {
     }
   }
 
+  const handleExportPdf = async () => {
+    setExportingPdf(true)
+    try {
+      await reportsApi.downloadPdfReport({
+        type: reportType,
+        date: targetDate || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined
+      })
+    } catch (err) {
+      alert('Failed to download PDF report')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   return (
     <Box sx={{ p: { xs: 1, md: 3 } }}>
       {/* Header */}
@@ -133,16 +151,29 @@ export default function ReportsPage() {
             Print
           </Button>
           {activeTab === 0 && (
-            <Button
-              id="btn-export-reports"
-              variant="contained"
-              startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadRoundedIcon />}
-              onClick={handleExportExcel}
-              disabled={exporting}
-              sx={{ borderRadius: '12px' }}
-            >
-              Export Excel
-            </Button>
+            <>
+              <Button
+                id="btn-export-pdf-reports"
+                variant="contained"
+                color="primary"
+                startIcon={exportingPdf ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfRoundedIcon />}
+                onClick={handleExportPdf}
+                disabled={exportingPdf}
+                sx={{ borderRadius: '12px' }}
+              >
+                Download PDF Report
+              </Button>
+              <Button
+                id="btn-export-reports"
+                variant="outlined"
+                startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadRoundedIcon />}
+                onClick={handleExportExcel}
+                disabled={exporting}
+                sx={{ borderRadius: '12px' }}
+              >
+                Export Excel
+              </Button>
+            </>
           )}
         </Stack>
       </Box>

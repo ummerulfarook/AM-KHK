@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ title }}</title>
+  <style>
+    @page {
+      size: a4 portrait;
+      margin: 15mm 10mm;
+    }
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 11px;
+      color: #0F2419;
+      background: #fff;
+    }
+    .header-table {
+      width: 100%;
+      border: none;
+      margin-bottom: 20px;
+    }
+    .header-table td {
+      border: none;
+      padding: 0;
+      vertical-align: top;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #0E3A2A;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #71837A;
+      margin-bottom: 2px;
+    }
+    .meta-table {
+      width: 100%;
+      background: #EEF5F0;
+      border: 1px solid #E2EBE4;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 20px;
+    }
+    .meta-table td {
+      border: none;
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+    .meta-label {
+      color: #71837A;
+      font-weight: bold;
+    }
+    .meta-val {
+      font-weight: bold;
+      color: #0F2419;
+    }
+    /* Summary Stats Grid (using table) */
+    .stats-table {
+      width: 100%;
+      margin-bottom: 20px;
+      border-collapse: collapse;
+    }
+    .stats-table td {
+      width: 33.33%;
+      border: 1px solid #E2EBE4;
+      padding: 10px;
+      background: #EEF5F0;
+      text-align: center;
+    }
+    .stat-title {
+      font-size: 9px;
+      color: #71837A;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .stat-val {
+      font-size: 16px;
+      font-weight: bold;
+      color: #059669;
+    }
+    /* Main Report Table */
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .report-table th {
+      background-color: #0E3A2A;
+      color: #ffffff;
+      text-align: left;
+      font-weight: bold;
+      padding: 8px 10px;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .report-table td {
+      border-bottom: 1px solid #E2EBE4;
+      padding: 8px 10px;
+      vertical-align: middle;
+    }
+    .report-table tr:nth-child(even) td {
+      background-color: #F4F8F5;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .bold {
+      font-weight: bold;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 9px;
+      color: #71837A;
+      border-top: 1px dashed #E2EBE4;
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <table class="header-table">
+    <tr>
+      <td>
+        <div class="title">AM & KHK Vegetable Merchants</div>
+        <div class="subtitle">Cheranalloor, Ernakulam | Ph: 9846089118, 9895110194</div>
+      </td>
+      <td class="text-right">
+        <div class="bold" style="font-size: 14px; color: #059669;">{{ title }}</div>
+        <div class="subtitle">Generated on: {{ generated_at }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Meta details -->
+  <table class="meta-table">
+    <tr>
+      <td class="meta-label">Period / Filter:</td>
+      <td class="meta-val">{{ period }}</td>
+      {% if customer_filter %}
+      <td class="meta-label">Party Filter:</td>
+      <td class="meta-val">{{ customer_filter }}</td>
+      {% endif %}
+    </tr>
+  </table>
+
+  <!-- Summary Stats -->
+  {% if summary %}
+  <table class="stats-table">
+    <tr>
+      {% for key, val in summary.items() %}
+      <td>
+        <div class="stat-title">{{ key }}</div>
+        <div class="stat-val" style="color: {% if 'Profit' in key or 'Income' in key %}#059669{% elif 'Expense' in key or 'Outflow' in key %}#E5484D{% else %}#0F2419{% endif %};">{{ val }}</div>
+      </td>
+      {% endfor %}
+    </tr>
+  </table>
+  {% endif %}
+
+  <!-- Data Table -->
+  <table class="report-table">
+    <thead>
+      <tr>
+        {% for h in headers %}
+        <th class="{% if h.align == 'right' %}text-right{% endif %}" style="width: {{ h.width or 'auto' }};">{{ h.title }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        {% for h in headers %}
+        <td class="{% if h.align == 'right' %}text-right{% endif %} {% if h.bold %}bold{% endif %}">
+          {{ row[h.key] }}
+        </td>
+        {% endfor %}
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="{{ headers|length }}" style="text-align: center; color: #71837A; padding: 20px;">
+          No transactions or entries found for this report.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Footer -->
+  <div class="footer">
+    AM & KHK Vegetable Merchants ERP System — Page 1 of 1
+  </div>
+</body>
+</html>

@@ -900,3 +900,357 @@ def get_bank_summary():
 
     return jsonify({"data": results}), 200
 
+
+@reports_bp.route("/pdf", methods=["GET"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def download_pdf_report():
+    """Generate and stream a PDF version of the custom report."""
+    report_type = request.args.get("type", "daily").lower()
+    target_date_str = request.args.get("date") # YYYY-MM-DD
+    
+    start_date = None
+    end_date = None
+    
+    if target_date_str:
+        try:
+            target_date = date.fromisoformat(target_date_str)
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    if report_type == "daily":
+        start_date, end_date = local_date_to_utc_range(target_date)
+        period_str = target_date.strftime("%d %b %Y")
+    elif report_type == "monthly":
+        start_day = date(target_date.year, target_date.month, 1)
+        if target_date.month == 12:
+            end_day = date(target_date.year, 12, 31)
+        else:
+            end_day = date(target_date.year, target_date.month + 1, 1) - timedelta(days=1)
+        start_date, _ = local_date_to_utc_range(start_day)
+        _, end_date = local_date_to_utc_range(end_day)
+        period_str = target_date.strftime("%B %Y")
+    elif report_type == "yearly":
+        if target_date.month >= 4:
+            fy_start_year = target_date.year
+        else:
+            fy_start_year = target_date.year - 1
+        start_day = date(fy_start_year, 4, 1)
+        end_day = date(fy_start_year + 1, 3, 31)
+        start_date, _ = local_date_to_utc_range(start_day)
+        _, end_date = local_date_to_utc_range(end_day)
+        period_str = f"FY {fy_start_year}-{fy_start_year+1}"
+    else:
+        df = request.args.get("dateFrom")
+        dt = request.args.get("dateTo")
+        if df:
+            try:
+                parsed_df = date.fromisoformat(df)
+                start_date, _ = local_date_to_utc_range(parsed_df)
+            except ValueError:
+                try:
+                    parsed_df = datetime.fromisoformat(df).date()
+                    start_date, _ = local_date_to_utc_range(parsed_df)
+                except ValueError:
+                    pass
+        if dt:
+            try:
+                parsed_dt = date.fromisoformat(dt)
+                _, end_date = local_date_to_utc_range(parsed_dt)
+            except ValueError:
+                try:
+                    parsed_dt = datetime.fromisoformat(dt).date()
+                    _, end_date = local_date_to_utc_range(parsed_dt)
+                except ValueError:
+                    pass
+        period_str = f"{df or 'Start'} to {dt or 'End'}"
+
+    # Setup headers and query based on report type
+    headers = []
+    rows = []
+    summary = {}
+    title = ""
+
+    def fmt_rupees(paise):
+        return '₹' + f"{paise / 100:,.2f}"
+
+    if report_type in ("daily", "monthly", "yearly"):
+        title = f"{report_type.capitalize()} Transaction Report"
+        headers = [
+            {"title": "Date", "key": "date_str", "width": "18%"},
+            {"title": "Reference", "key": "reference", "width": "15%"},
+            {"title": "Particulars", "key": "particulars", "width": "37%"},
+            {"title": "Boxes", "key": "boxes", "width": "10%", "align": "right"},
+            {"title": "Income", "key": "income_str", "width": "10%", "align": "right"},
+            {"title": "Expense", "key": "expense_str", "width": "10%", "align": "right"},
+        ]
+
+        sales = db.session.execute(
+            db.select(RetailSale)
+            .where(RetailSale.created_at >= start_date if start_date else True)
+            .where(RetailSale.created_at <= end_date if end_date else True)
+        ).scalars().all()
+
+        expenses = db.session.execute(
+            db.select(Expense)
+            .where(Expense.status == "approved")
+            .where(Expense.expense_date >= start_date.date() if start_date else True)
+            .where(Expense.expense_date <= end_date.date() if end_date else True)
+        ).scalars().all()
+
+        purchases = db.session.execute(
+            db.select(PurchaseOrder)
+            .where(PurchaseOrder.status != "cancelled")
+            .where(PurchaseOrder.created_at >= start_date if start_date else True)
+            .where(PurchaseOrder.created_at <= end_date if end_date else True)
+        ).scalars().all()
+
+        payments = db.session.execute(
+            db.select(Payment)
+            .where(Payment.recorded_at >= start_date if start_date else True)
+            .where(Payment.recorded_at <= end_date if end_date else True)
+        ).scalars().all()
+
+        for s in sales:
+            rows.append({
+                "date": s.created_at.isoformat(),
+                "date_str": s.created_at.strftime("%d-%m-%Y %H:%M"),
+                "reference": s.invoice_number or f"SALE-{s.id}",
+                "particulars": f"Retail Sale ({s.payment_method.upper()})",
+                "income": s.total,
+                "income_str": fmt_rupees(s.total),
+                "expense": 0,
+                "expense_str": "₹0.00",
+                "boxes": sum(item.boxes or 0 for item in s.items)
+            })
+        for e in expenses:
+            d_val = datetime(e.expense_date.year, e.expense_date.month, e.expense_date.day)
+            rows.append({
+                "date": d_val.isoformat(),
+                "date_str": e.expense_date.strftime("%d-%m-%Y"),
+                "reference": f"EXP-{e.id}",
+                "particulars": f"Expense: {e.category} ({e.notes or ''})",
+                "income": 0,
+                "income_str": "₹0.00",
+                "expense": e.amount,
+                "expense_str": fmt_rupees(e.amount),
+                "boxes": 0
+            })
+        for p in purchases:
+            rows.append({
+                "date": p.created_at.isoformat(),
+                "date_str": p.created_at.strftime("%d-%m-%Y %H:%M"),
+                "reference": f"PO-{p.id}",
+                "particulars": f"PO Purchase: {p.supplier.name if p.supplier else 'N/A'}",
+                "income": 0,
+                "income_str": "₹0.00",
+                "expense": p.total_amount,
+                "expense_str": fmt_rupees(p.total_amount),
+                "boxes": 0
+            })
+        for pay in payments:
+            if pay.notes and ("[POS Downpayment]" in pay.notes or "[POS Credit Downpayment]" in pay.notes):
+                continue
+            c_name = pay.credit_entry.customer.name if (pay.credit_entry and pay.credit_entry.customer) else "N/A"
+            ref_num = pay.credit_entry.invoice_ref if pay.credit_entry else ""
+            particulars = f"Dues Payment: {c_name}"
+            if ref_num:
+                particulars += f" (For {ref_num})"
+            particulars += f" via {pay.method.upper()}"
+            
+            rows.append({
+                "date": pay.recorded_at.isoformat(),
+                "date_str": pay.recorded_at.strftime("%d-%m-%Y %H:%M"),
+                "reference": f"PAY-{pay.id}",
+                "particulars": particulars,
+                "income": pay.amount,
+                "income_str": fmt_rupees(pay.amount),
+                "expense": 0,
+                "expense_str": "₹0.00",
+                "boxes": 0
+            })
+            
+        rows.sort(key=lambda x: x["date"], reverse=True)
+        total_income = sum(r["income"] for r in rows)
+        total_expense = sum(r["expense"] for r in rows)
+        summary = {
+            "Total Income": fmt_rupees(total_income),
+            "Total Expenses": fmt_rupees(total_expense),
+            "Net Profit": fmt_rupees(total_income - total_expense)
+        }
+
+    elif report_type == "expense":
+        title = "Expense & Purchase Outflow Report"
+        headers = [
+            {"title": "Date", "key": "date_str", "width": "18%"},
+            {"title": "Category", "key": "category", "width": "22%"},
+            {"title": "Reference", "key": "reference", "width": "15%"},
+            {"title": "Particulars / Notes", "key": "notes", "width": "35%"},
+            {"title": "Amount", "key": "amount_str", "width": "10%", "align": "right"},
+        ]
+
+        expenses = db.session.execute(
+            db.select(Expense)
+            .where(Expense.status == "approved")
+            .where(Expense.expense_date >= start_date.date() if start_date else True)
+            .where(Expense.expense_date <= end_date.date() if end_date else True)
+        ).scalars().all()
+
+        purchases = db.session.execute(
+            db.select(PurchaseOrder)
+            .where(PurchaseOrder.status != "cancelled")
+            .where(PurchaseOrder.created_at >= start_date if start_date else True)
+            .where(PurchaseOrder.created_at <= end_date if end_date else True)
+        ).scalars().all()
+
+        for e in expenses:
+            d_val = datetime(e.expense_date.year, e.expense_date.month, e.expense_date.day)
+            rows.append({
+                "date": d_val.isoformat(),
+                "date_str": e.expense_date.strftime("%d-%m-%Y"),
+                "category": e.category,
+                "reference": f"EXP-{e.id}",
+                "notes": e.notes or "",
+                "amount": e.amount,
+                "amount_str": fmt_rupees(e.amount)
+            })
+        for p in purchases:
+            rows.append({
+                "date": p.created_at.isoformat(),
+                "date_str": p.created_at.strftime("%d-%m-%Y %H:%M"),
+                "category": "Inventory Purchase",
+                "reference": f"PO-{p.id}",
+                "notes": f"Supplier: {p.supplier.name if p.supplier else 'N/A'}",
+                "amount": p.total_amount,
+                "amount_str": fmt_rupees(p.total_amount)
+            })
+
+        rows.sort(key=lambda x: x["date"], reverse=True)
+        summary = {
+            "Total Outflow": fmt_rupees(sum(r["amount"] for r in rows))
+        }
+
+    elif report_type == "credit":
+        title = "Customer Outstanding Dues Report"
+        headers = [
+            {"title": "Customer Name", "key": "name", "width": "35%"},
+            {"title": "Phone", "key": "phone", "width": "20%"},
+            {"title": "Type", "key": "type_str", "width": "15%"},
+            {"title": "Partner Block", "key": "partner", "width": "15%"},
+            {"title": "Outstanding Dues", "key": "balance_str", "width": "15%", "align": "right"},
+        ]
+
+        stmt = db.select(Customer).where(Customer.outstanding_balance > 0)
+        search = request.args.get("search", "").strip()
+        if search:
+            stmt = stmt.where(Customer.name.ilike(f"%{search}%"))
+        customers = db.session.execute(stmt).scalars().all()
+        
+        for c in customers:
+            rows.append({
+                "name": c.name,
+                "phone": c.phone or "N/A",
+                "type_str": c.type.upper(),
+                "partner": c.partner.upper(),
+                "balance": c.outstanding_balance,
+                "balance_str": fmt_rupees(c.outstanding_balance)
+            })
+        
+        rows.sort(key=lambda x: x["balance"], reverse=True)
+        summary = {
+            "Total Outstanding Dues": fmt_rupees(sum(r["balance"] for r in rows)),
+            "Debtor Accounts Count": f"{len(rows)} parties"
+        }
+
+    elif report_type == "purchase":
+        title = "Supplier Purchase Orders Report"
+        headers = [
+            {"title": "Date", "key": "date_str", "width": "18%"},
+            {"title": "Supplier", "key": "supplierName", "width": "32%"},
+            {"title": "Status", "key": "status", "width": "15%"},
+            {"title": "Payment Status", "key": "paymentStatus", "width": "15%"},
+            {"title": "Total Amount", "key": "totalAmount_str", "width": "20%", "align": "right"},
+        ]
+
+        purchases = db.session.execute(
+            db.select(PurchaseOrder)
+            .where(PurchaseOrder.created_at >= start_date if start_date else True)
+            .where(PurchaseOrder.created_at <= end_date if end_date else True)
+            .order_by(PurchaseOrder.created_at.desc())
+        ).scalars().all()
+        
+        for p in purchases:
+            rows.append({
+                "supplierName": p.supplier.name if p.supplier else "N/A",
+                "date_str": p.created_at.strftime("%d-%m-%Y %H:%M"),
+                "status": p.status.upper(),
+                "paymentStatus": p.payment_status.upper(),
+                "amount": p.total_amount,
+                "totalAmount_str": fmt_rupees(p.total_amount),
+            })
+        
+        summary = {
+            "Total Purchase Value": fmt_rupees(sum(r["amount"] for r in rows)),
+            "Order Count": f"{len(rows)} orders"
+        }
+
+    elif report_type == "purchase_payment":
+        title = "Supplier Purchase Payments Report"
+        headers = [
+            {"title": "Date", "key": "date_str", "width": "18%"},
+            {"title": "Supplier", "key": "supplierName", "width": "35%"},
+            {"title": "PO Status", "key": "paymentStatus", "width": "17%"},
+            {"title": "Paid Amount", "key": "amount_str", "width": "30%", "align": "right"},
+        ]
+
+        purchases = db.session.execute(
+            db.select(PurchaseOrder)
+            .where(PurchaseOrder.payment_status != "pending")
+            .where(PurchaseOrder.created_at >= start_date if start_date else True)
+            .where(PurchaseOrder.created_at <= end_date if end_date else True)
+            .order_by(PurchaseOrder.created_at.desc())
+        ).scalars().all()
+        
+        for p in purchases:
+            rows.append({
+                "supplierName": p.supplier.name if p.supplier else "N/A",
+                "date_str": p.created_at.strftime("%d-%m-%Y %H:%M"),
+                "paymentStatus": p.payment_status.upper(),
+                "amount": p.total_amount,
+                "amount_str": fmt_rupees(p.total_amount),
+            })
+            
+        summary = {
+            "Total Payments Outflow": fmt_rupees(sum(r["amount"] for r in rows)),
+            "Payments Count": f"{len(rows)} operations"
+        }
+
+    # Render Jinja template to PDF
+    from flask import render_template
+    html_content = render_template(
+        "report_pdf.html",
+        title=title,
+        generated_at=datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%d-%m-%Y %H:%M"),
+        period=period_str,
+        customer_filter=None,
+        headers=headers,
+        rows=rows,
+        summary=summary,
+        fmtRupees=fmt_rupees
+    )
+
+    from app.services.invoice_service import generate_invoice_pdf
+    try:
+        pdf_bytes = generate_invoice_pdf(html_content)
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"{report_type}_report_{datetime.now().strftime('%Y%m%d%H%M')}.pdf"
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate PDF report: {e}"}), 500
+
+

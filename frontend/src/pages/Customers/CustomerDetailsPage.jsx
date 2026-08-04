@@ -15,6 +15,8 @@ import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import { customersApi } from '../../api/customersApi'
 import { settingsApi } from '../../api/settingsApi'
 import { tokens } from '../../theme/theme'
@@ -32,6 +34,7 @@ export default function CustomerDetailsPage() {
   const [historyPage, setHistoryPage] = useState(1)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
 
   // Payment dialog state
   const [payDialogOpen, setPayDialogOpen] = useState(false)
@@ -267,9 +270,29 @@ export default function CustomerDetailsPage() {
             New Sale
           </Button>
           <Button
+            id="btn-download-customer-pdf"
+            variant="outlined"
+            color="primary"
+            startIcon={downloadingPdf ? <CircularProgress size={16} /> : <PictureAsPdfRoundedIcon />}
+            onClick={async () => {
+              setDownloadingPdf(true)
+              try {
+                await customersApi.downloadCustomerLedgerPdf(id, { dateFrom, dateTo }, customer.name)
+              } catch (e) {
+                alert('Failed to download customer statement PDF')
+              } finally {
+                setDownloadingPdf(false)
+              }
+            }}
+            disabled={downloadingPdf}
+            sx={{ borderRadius: '10px', fontWeight: 600, px: 2, py: 1 }}
+          >
+            Download PDF
+          </Button>
+          <Button
             variant="outlined"
             onClick={() => window.print()}
-            sx={{ borderRadius: '10px', fontWeight: 600, px: 3, py: 1 }}
+            sx={{ borderRadius: '10px', fontWeight: 600, px: 2.5, py: 1 }}
           >
             Print Statement
           </Button>

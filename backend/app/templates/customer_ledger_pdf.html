@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Customer Statement - {{ customer.name }}</title>
+  <style>
+    @page {
+      size: a4 portrait;
+      margin: 15mm 10mm;
+    }
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 11px;
+      color: #0F2419;
+      background: #fff;
+    }
+    .header-table {
+      width: 100%;
+      border: none;
+      margin-bottom: 20px;
+    }
+    .header-table td {
+      border: none;
+      padding: 0;
+      vertical-align: top;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #0E3A2A;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #71837A;
+      margin-bottom: 2px;
+    }
+    /* Customer Info Block */
+    .cust-info-table {
+      width: 100%;
+      background: #EEF5F0;
+      border: 1px solid #E2EBE4;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 20px;
+    }
+    .cust-info-table td {
+      border: none;
+      padding: 4px 8px;
+      font-size: 11px;
+      vertical-align: top;
+    }
+    .label {
+      color: #71837A;
+      font-weight: bold;
+      width: 18%;
+    }
+    .val {
+      font-weight: bold;
+      color: #0F2419;
+      width: 32%;
+    }
+    /* Summary Stats Grid (using table) */
+    .stats-table {
+      width: 100%;
+      margin-bottom: 20px;
+      border-collapse: collapse;
+    }
+    .stats-table td {
+      width: 50%;
+      border: 1px solid #E2EBE4;
+      padding: 12px;
+      background: #EEF5F0;
+      text-align: center;
+    }
+    .stat-title {
+      font-size: 9px;
+      color: #71837A;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .stat-val {
+      font-size: 18px;
+      font-weight: bold;
+      color: #E5484D; /* Red for outstanding */
+    }
+    /* Main Report Table */
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .report-table th {
+      background-color: #0E3A2A;
+      color: #ffffff;
+      text-align: left;
+      font-weight: bold;
+      padding: 8px 10px;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .report-table td {
+      border-bottom: 1px solid #E2EBE4;
+      padding: 8px 10px;
+      vertical-align: middle;
+    }
+    .report-table tr:nth-child(even) td {
+      background-color: #F4F8F5;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .bold {
+      font-weight: bold;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 9px;
+      color: #71837A;
+      border-top: 1px dashed #E2EBE4;
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <table class="header-table">
+    <tr>
+      <td>
+        <div class="title">AM & KHK Vegetable Merchants</div>
+        <div class="subtitle">Cheranalloor, Ernakulam | Ph: 9846089118, 9895110194</div>
+      </td>
+      <td class="text-right">
+        <div class="bold" style="font-size: 14px; color: #059669;">Customer Statement</div>
+        <div class="subtitle">Generated on: {{ generated_at }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Customer profile -->
+  <table class="cust-info-table">
+    <tr>
+      <td class="label">Customer Name:</td>
+      <td class="val">{{ customer.name }}</td>
+      <td class="label">Customer Type:</td>
+      <td class="val">{{ customer.type.upper() }}</td>
+    </tr>
+    <tr>
+      <td class="label">Phone:</td>
+      <td class="val">{{ customer.phone or 'N/A' }}</td>
+      <td class="label">Credit Limit:</td>
+      <td class="val">{{ fmtRupees(customer.credit_limit) }}</td>
+    </tr>
+    <tr>
+      <td class="label">Address:</td>
+      <td class="val" colspan="3">{{ customer.address or 'N/A' }}</td>
+    </tr>
+  </table>
+
+  <!-- Dues Summary -->
+  <table class="stats-table">
+    <tr>
+      <td>
+        <div class="stat-title">Period Filter</div>
+        <div class="stat-val" style="font-size: 14px; color: #0F2419; margin-top: 4px;">{{ period }}</div>
+      </td>
+      <td>
+        <div class="stat-title">Total Outstanding Dues</div>
+        <div class="stat-val">{{ fmtRupees(customer.outstanding_balance) }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <h3 style="color: #0E3A2A; margin-bottom: 5px;">Transaction History Ledger</h3>
+  <!-- Data Table -->
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Type</th>
+        <th>Ref / Invoice #</th>
+        <th>Payment Method</th>
+        <th>Status</th>
+        <th class="text-right">Bill Total</th>
+        <th class="text-right">Paid Amount</th>
+        <th class="text-right">Dues Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.date }}</td>
+        <td>{{ row.type.upper() }}</td>
+        <td class="bold">{{ row.invoiceNumber }}</td>
+        <td>{{ row.paymentMethod.upper() }}</td>
+        <td>{{ row.paymentStatus.upper() }}</td>
+        <td class="text-right">{{ fmtRupees(row.total) }}</td>
+        <td class="text-right" style="color: #059669;">{{ fmtRupees(row.amountPaid) }}</td>
+        <td class="text-right bold" style="color: {% if row.balance > 0 %}#E5484D{% else %}#0F2419{% endif %};">
+          {{ fmtRupees(row.balance) }}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="8" style="text-align: center; color: #71837A; padding: 20px;">
+          No transactions or statement history found for this period.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Footer -->
+  <div class="footer">
+    AM & KHK Vegetable Merchants ERP System — Page 1 of 1
+  </div>
+</body>
+</html>

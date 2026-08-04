@@ -30,4 +30,18 @@ export const reportsApi = {
 
   /** GET /api/reports/query — Get custom Daily, Monthly, Yearly, Expense, Credit, Purchase reports */
   getCustomReport: (params = {}) => api.get('/api/reports/query', { params }).then(r => r.data),
+
+  /** GET /api/reports/pdf — Download PDF report */
+  downloadPdfReport: async (params = {}) => {
+    const response = await api.get('/api/reports/pdf', { params, responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    const reportType = params.type || 'daily'
+    link.setAttribute('download', `${reportType}_report_${new Date().toISOString().split('T')[0]}.pdf`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  },
 }
