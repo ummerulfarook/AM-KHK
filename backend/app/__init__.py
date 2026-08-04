@@ -23,6 +23,11 @@ def create_app(test_config: dict | None = None) -> Flask:
     data_dir = os.path.join(base_dir, "data")
     os.makedirs(data_dir, exist_ok=True)
 
+    # Run auto-migrations on startup
+    from app.utils.migrations import run_auto_migrations
+    db_file_path = os.path.join(data_dir, "amkhk.db")
+    run_auto_migrations(db_file_path)
+
     # Point at the pre-built React bundle when running in production
     static_folder = os.path.join(base_dir, "..", "frontend", "dist")
     static_folder = os.path.abspath(static_folder)

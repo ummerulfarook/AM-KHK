@@ -6,7 +6,7 @@ import {
   InputLabel, MenuItem, Paper, Select, Snackbar, TextField, Typography,
   alpha, List, ListItemButton, ListItemText, ListItemIcon,
   Dialog, DialogTitle, DialogContent, DialogActions, Stack, IconButton,
-  Badge,
+  Badge, Switch, FormControlLabel,
 } from '@mui/material'
 import PointOfSaleRoundedIcon from '@mui/icons-material/PointOfSaleRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
@@ -44,7 +44,11 @@ export default function BillingPage() {
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('pos_cart') || '[]')
+      const saved = JSON.parse(localStorage.getItem('pos_cart') || '[]')
+      return saved.map(item => ({
+        ...item,
+        cartId: item.cartId || Math.random().toString(36).substring(2, 9)
+      }))
     } catch (e) {
       return []
     }
@@ -64,6 +68,14 @@ export default function BillingPage() {
   const [toast, setToast] = useState({ open: false, msg: '', severity: 'success' })
   const [selectedUpiAccount, setSelectedUpiAccount] = useState(() => localStorage.getItem('pos_selected_upi') || '')
   const [cashPaid, setCashPaid] = useState(() => localStorage.getItem('pos_cash_paid') || '')
+  const [splitMode, setSplitMode] = useState(() => {
+    try {
+      const v = localStorage.getItem('pos_split_mode')
+      return v ? JSON.parse(v) : false
+    } catch { return false }
+  })
+  const [upiPaid, setUpiPaid] = useState(() => localStorage.getItem('pos_upi_paid') || '')
+  const [bankPaid, setBankPaid] = useState(() => localStorage.getItem('pos_bank_paid') || '')
   const [selectedBank, setSelectedBank] = useState(() => localStorage.getItem('pos_selected_bank') || '')
   const [invoiceToPay, setInvoiceToPay] = useState(() => localStorage.getItem('pos_invoice_to_pay') || '')
   const [customDate, setCustomDate] = useState(() => localStorage.getItem('pos_custom_date') || '')
@@ -192,6 +204,15 @@ export default function BillingPage() {
     localStorage.setItem('pos_cash_paid', cashPaid)
   }, [cashPaid])
   useEffect(() => {
+    localStorage.setItem('pos_split_mode', JSON.stringify(splitMode))
+  }, [splitMode])
+  useEffect(() => {
+    localStorage.setItem('pos_upi_paid', upiPaid)
+  }, [upiPaid])
+  useEffect(() => {
+    localStorage.setItem('pos_bank_paid', bankPaid)
+  }, [bankPaid])
+  useEffect(() => {
     localStorage.setItem('pos_invoice_to_pay', invoiceToPay)
   }, [invoiceToPay])
   useEffect(() => {
@@ -307,50 +328,41 @@ export default function BillingPage() {
 
   // ── Cart operations ──────────────────────────────────────────────────────
   const addToCart = useCallback((product) => {
+    const uniqueCartId = Math.random().toString(36).substring(2, 9)
+
     setCart(prev => {
       let nextCart = [...prev]
-      const exists = nextCart.find(i => i.productId === product.id)
-      if (exists) {
-        nextCart = nextCart.map(i =>
-          i.productId === product.id ? { ...i, qty: i.qty + 1 } : i
-        )
-      } else {
-        nextCart.push({
-          productId: product.id,
-          name: product.name,
-          unit: product.unit,
-          qty: 1,
-          unitPrice: product.sellingPrice,  // paise
-          stockStatus: product.stockStatus,
-          availableStock: product.currentStock,
-          addonProductId: product.addonProductId,
-          addonQuantity: product.addonQuantity,
-          boxes: 0,
-          boxWeight: 0.0,
-        })
-      }
+      nextCart.push({
+        cartId: uniqueCartId,
+        productId: product.id,
+        name: product.name,
+        unit: product.unit,
+        qty: 1,
+        unitPrice: product.sellingPrice,  // paise
+        stockStatus: product.stockStatus,
+        availableStock: product.currentStock,
+        addonProductId: product.addonProductId,
+        addonQuantity: product.addonQuantity,
+        boxes: 0,
+        boxWeight: 0.0,
+      })
 
       // Add associated addon if present
       if (product.addonProductId) {
-        const addonExists = nextCart.find(i => i.productId === product.addonProductId)
+        const addonUniqueCartId = Math.random().toString(36).substring(2, 9)
         const addonQty = product.addonQuantity || 1.0
-        if (addonExists) {
-          nextCart = nextCart.map(i =>
-            i.productId === product.addonProductId ? { ...i, qty: i.qty + addonQty } : i
-          )
-        } else {
-          nextCart.push({
-            productId: product.addonProductId,
-            name: product.addonProductName || 'Addon Item',
-            unit: 'piece',
-            qty: addonQty,
-            unitPrice: product.addonProductSellingPrice || 0, // paise
-            stockStatus: 'in_stock',
-            availableStock: 9999,
-            boxes: 0,
-            boxWeight: 0.0,
-          })
-        }
+        nextCart.push({
+          cartId: addonUniqueCartId,
+          productId: product.addonProductId,
+          name: product.addonProductName || 'Addon Item',
+          unit: 'piece',
+          qty: addonQty,
+          unitPrice: product.addonProductSellingPrice || 0, // paise
+          stockStatus: 'in_stock',
+          availableStock: 9999,
+          boxes: 0,
+          boxWeight: 0.0,
+        })
       }
 
       return nextCart
@@ -358,7 +370,7 @@ export default function BillingPage() {
 
     // Focus the qty input of the added product after React updates the DOM
     setTimeout(() => {
-      const el = document.getElementById(`cart-qty-${product.id}`)
+      const el = document.getElementById(`cart-qty-${uniqueCartId}`)
       if (el) {
         el.focus()
         el.select()
@@ -387,17 +399,17 @@ export default function BillingPage() {
     }
   }, [products, highlightedIndex, addToCart])
 
-  const updateQty = useCallback((productId, qty) => {
-    setCart(prev => prev.map(i => i.productId === productId ? { ...i, qty } : i))
+  const updateQty = useCallback((cartId, qty) => {
+    setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, qty } : i))
   }, [])
 
-  const updatePrice = useCallback((productId, priceRs) => {
-    const paise = Math.round(priceRs * 100)
-    setCart(prev => prev.map(i => i.productId === productId ? { ...i, unitPrice: paise } : i))
+  const updatePrice = useCallback((cartId, priceRs) => {
+    const paise = Math.round(parseFloat(priceRs) * 100)
+    setCart(prev => prev.map(i => i.cartId === cartId ? { ...i, unitPrice: paise } : i))
   }, [])
 
-  const removeFromCart = useCallback((productId) => {
-    setCart(prev => prev.filter(i => i.productId !== productId))
+  const removeFromCart = useCallback((cartId) => {
+    setCart(prev => prev.filter(i => i.cartId !== cartId))
   }, [])
 
   const clearCart = useCallback(() => {
@@ -412,6 +424,9 @@ export default function BillingPage() {
     setAdHocPhone('')
     setCustomDate('')
     setCashPaid('')
+    setSplitMode(false)
+    setUpiPaid('')
+    setBankPaid('')
     setSelectedBank('')
     setInvoiceToPay('')
     
@@ -425,6 +440,9 @@ export default function BillingPage() {
     localStorage.removeItem('pos_selected_upi')
     localStorage.removeItem('pos_selected_bank')
     localStorage.removeItem('pos_cash_paid')
+    localStorage.removeItem('pos_split_mode')
+    localStorage.removeItem('pos_upi_paid')
+    localStorage.removeItem('pos_bank_paid')
     localStorage.removeItem('pos_invoice_to_pay')
     localStorage.removeItem('pos_custom_date')
     localStorage.removeItem('pos_adhoc_name')
@@ -516,11 +534,13 @@ export default function BillingPage() {
         quantity: i.qty,
         unitPrice: i.unitPrice / 100,  // send as rupees; backend converts
       })),
-      paymentMethod,
+      paymentMethod: splitMode ? 'credit' : paymentMethod,
       upiId: selectedUpiAccount || null,
-      bankName: paymentMethod === 'bank' ? selectedBank : null,
-      cashPaid: (paymentMethod === 'cash' || paymentMethod === 'credit') && cashPaid ? parseFloat(cashPaid) : null,
-      invoiceToPay: (paymentMethod === 'cash' && invoiceToPay) ? invoiceToPay : null,
+      bankName: (splitMode || paymentMethod === 'bank') ? selectedBank : null,
+      cashPaid: splitMode ? (cashPaid ? parseFloat(cashPaid) : 0) : ((paymentMethod === 'cash' || paymentMethod === 'credit') && cashPaid ? parseFloat(cashPaid) : null),
+      upiPaid: splitMode ? (upiPaid ? parseFloat(upiPaid) : 0) : (paymentMethod === 'upi' ? total / 100 : null),
+      bankPaid: splitMode ? (bankPaid ? parseFloat(bankPaid) : 0) : (paymentMethod === 'bank' ? total / 100 : null),
+      invoiceToPay: ((splitMode || paymentMethod === 'cash') && invoiceToPay) ? invoiceToPay : null,
       discount: discount ? parseFloat(discount) : 0,
       creditDays: creditDays ? parseInt(creditDays) : null,
       notes: notes || null,
@@ -830,7 +850,7 @@ export default function BillingPage() {
                   </Box>
                   {cart.map(item => (
                     <CartItem
-                      key={item.productId}
+                      key={item.cartId}
                       item={item}
                       onQtyChange={updateQty}
                       onPriceChange={updatePrice}
@@ -866,105 +886,165 @@ export default function BillingPage() {
             />
             <CardContent sx={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-              {/* Customer selection moved to top of left column */}
-
-              {/* Payment method */}
-              <FormControl fullWidth size="small">
-                <InputLabel>Payment Method</InputLabel>
-                <Select
-                  id="checkout-payment"
-                  label="Payment Method"
-                  value={paymentMethod}
-                  onChange={e => {
-                    setPaymentMethod(e.target.value)
-                    if (e.target.value === 'upi' && upiAccounts.length > 0) {
-                      setSelectedUpiAccount(upiAccounts[0].name)
-                    } else {
-                      setSelectedUpiAccount('')
-                    }
-                    if (e.target.value === 'bank' && bankAccounts.length > 0) {
-                      setSelectedBank(bankAccounts[0].name)
-                    } else {
-                      setSelectedBank('')
-                    }
-                  }}
-                >
-                  {PAYMENT_METHODS.map(m => (
-                    <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              {paymentMethod === 'upi' && upiAccounts.length > 0 && (
-                <FormControl fullWidth size="small">
-                  <InputLabel>UPI Account</InputLabel>
-                  <Select
-                    id="checkout-upi-account"
-                    label="UPI Account"
-                    value={selectedUpiAccount}
-                    onChange={e => setSelectedUpiAccount(e.target.value)}
-                    required
-                  >
-                    {upiAccounts.map(ac => (
-                      <MenuItem key={ac.name} value={ac.name}>
-                        {ac.name} ({ac.upi})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+              {/* Split Payment modes toggle */}
+              {customer && (
+                <FormControlLabel
+                  control={
+                    <Switch
+                      id="checkout-split-mode-toggle"
+                      checked={splitMode}
+                      onChange={(e) => {
+                        setSplitMode(e.target.checked)
+                        if (e.target.checked) {
+                          setCashPaid('')
+                          setUpiPaid('')
+                          setBankPaid('')
+                        }
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: tokens.textPrimary }}>
+                      Split Payment Modes
+                    </Typography>
+                  }
+                />
               )}
 
-              {paymentMethod === 'upi' && upiAccounts.length === 0 && (
-                <Alert severity="warning" sx={{ py: 0.5 }}>
-                  No UPI accounts configured under Settings.
-                </Alert>
-              )}
-
-              {paymentMethod === 'bank' && bankAccounts.length > 0 && (
-                <FormControl fullWidth size="small">
-                  <InputLabel>Bank Account</InputLabel>
-                  <Select
-                    id="checkout-bank-account"
-                    label="Bank Account"
-                    value={selectedBank}
-                    onChange={e => setSelectedBank(e.target.value)}
-                    required
-                  >
-                    {bankAccounts.map(ac => (
-                      <MenuItem key={ac.name} value={ac.name}>
-                        {ac.name} ({ac.account})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-
-              {paymentMethod === 'bank' && bankAccounts.length === 0 && (
-                <Alert severity="warning" sx={{ py: 0.5 }}>
-                  No Bank accounts configured under Settings.
-                </Alert>
-              )}
-
-              {['cash', 'upi', 'bank'].includes(paymentMethod) && customer && (
-                <Stack spacing={1.5}>
+              {splitMode ? (
+                <Stack spacing={2}>
+                  <Typography sx={{ fontWeight: 700, fontSize: '0.8rem', color: tokens.emerald600 }}>
+                    Enter split modes received amounts (Rupees):
+                  </Typography>
+                  
                   <TextField
-                    id="checkout-cash-paid"
-                    label="Amount Received (optional)"
-                    placeholder="e.g. 5000"
+                    id="checkout-split-cash"
+                    label="Cash Paid (₹)"
                     size="small"
                     type="number"
                     inputProps={{ min: 0, step: 0.5 }}
                     value={cashPaid}
                     onChange={e => setCashPaid(e.target.value)}
                     fullWidth
-                    helperText={cashPaid && parseFloat(cashPaid) > 0 ? (
-                      parseFloat(cashPaid) < (total / 100)
-                        ? `Shortage of ₹${((total / 100) - parseFloat(cashPaid)).toFixed(2)} will be added to credit dues`
-                        : `Surplus of ₹${(parseFloat(cashPaid) - (total / 100)).toFixed(2)} will reduce credit dues`
-                    ) : ''}
                   />
+
                   <TextField
-                    id="checkout-invoice-to-pay"
+                    id="checkout-split-upi"
+                    label="UPI Paid (₹)"
+                    size="small"
+                    type="number"
+                    inputProps={{ min: 0, step: 0.5 }}
+                    value={upiPaid}
+                    onChange={e => setUpiPaid(e.target.value)}
+                    fullWidth
+                  />
+
+                  {parseFloat(upiPaid) > 0 && upiAccounts.length > 0 && (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>UPI Account</InputLabel>
+                      <Select
+                        id="checkout-upi-account-split"
+                        label="UPI Account"
+                        value={selectedUpiAccount}
+                        onChange={e => setSelectedUpiAccount(e.target.value)}
+                        required
+                      >
+                        {upiAccounts.map(ac => (
+                          <MenuItem key={ac.name} value={ac.name}>
+                            {ac.name} ({ac.upi})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+
+                  {parseFloat(upiPaid) > 0 && upiAccounts.length === 0 && (
+                    <Alert severity="warning" sx={{ py: 0.5 }}>
+                      No UPI accounts configured under Settings.
+                    </Alert>
+                  )}
+
+                  <TextField
+                    id="checkout-split-bank"
+                    label="Bank Paid (₹)"
+                    size="small"
+                    type="number"
+                    inputProps={{ min: 0, step: 0.5 }}
+                    value={bankPaid}
+                    onChange={e => setBankPaid(e.target.value)}
+                    fullWidth
+                  />
+
+                  {parseFloat(bankPaid) > 0 && bankAccounts.length > 0 && (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Bank Account</InputLabel>
+                      <Select
+                        id="checkout-bank-account-split"
+                        label="Bank Account"
+                        value={selectedBank}
+                        onChange={e => setSelectedBank(e.target.value)}
+                        required
+                      >
+                        {bankAccounts.map(ac => (
+                          <MenuItem key={ac.name} value={ac.name}>
+                            {ac.name} ({ac.account})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+
+                  {parseFloat(bankPaid) > 0 && bankAccounts.length === 0 && (
+                    <Alert severity="warning" sx={{ py: 0.5 }}>
+                      No Bank accounts configured under Settings.
+                    </Alert>
+                  )}
+
+                  {/* Calculations summary */}
+                  {(() => {
+                    const cPaid = parseFloat(cashPaid) || 0
+                    const uPaid = parseFloat(upiPaid) || 0
+                    const bPaid = parseFloat(bankPaid) || 0
+                    const totPaid = cPaid + uPaid + bPaid
+                    const billTotal = total / 100
+                    const diff = billTotal - totPaid
+                    return (
+                      <Box sx={{ background: tokens.surfaceAlt, p: 1.5, borderRadius: '8px' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography sx={{ fontSize: '0.78rem', color: tokens.textSecondary }}>Total Paid:</Typography>
+                          <Typography sx={{ fontSize: '0.78rem', fontWeight: 700 }}>₹{totPaid.toFixed(2)}</Typography>
+                        </Box>
+                        {diff > 0 ? (
+                          <Typography sx={{ fontSize: '0.78rem', color: tokens.amber500, fontWeight: 600 }}>
+                            ⚠️ Remaining ₹{diff.toFixed(2)} will be added to credit dues
+                          </Typography>
+                        ) : diff < 0 ? (
+                          <Typography sx={{ fontSize: '0.78rem', color: tokens.emerald600, fontWeight: 600 }}>
+                            ✨ Surplus of ₹{Math.abs(diff).toFixed(2)} will reduce older dues
+                          </Typography>
+                        ) : (
+                          <Typography sx={{ fontSize: '0.78rem', color: tokens.emerald600, fontWeight: 600 }}>
+                            ✅ Fully paid (Exact match)
+                          </Typography>
+                        )}
+                      </Box>
+                    )
+                  })()}
+
+                  <TextField
+                    id="checkout-split-credit-days"
+                    label="Credit Days (optional)"
+                    placeholder="e.g. 7"
+                    size="small"
+                    type="number"
+                    inputProps={{ min: 1 }}
+                    value={creditDays}
+                    onChange={e => setCreditDays(e.target.value)}
+                  />
+
+                  <TextField
+                    id="checkout-split-invoice-to-pay"
                     label="Pay Previous Invoice # (optional)"
                     placeholder="e.g. INV-0012"
                     size="small"
@@ -974,45 +1054,155 @@ export default function BillingPage() {
                     helperText="Specify to apply surplus to a specific older bill"
                   />
                 </Stack>
-              )}
+              ) : (
+                <>
+                  {/* Payment method */}
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Payment Method</InputLabel>
+                    <Select
+                      id="checkout-payment"
+                      label="Payment Method"
+                      value={paymentMethod}
+                      onChange={e => {
+                        setPaymentMethod(e.target.value)
+                        if (e.target.value === 'upi' && upiAccounts.length > 0) {
+                          setSelectedUpiAccount(upiAccounts[0].name)
+                        } else {
+                          setSelectedUpiAccount('')
+                        }
+                        if (e.target.value === 'bank' && bankAccounts.length > 0) {
+                          setSelectedBank(bankAccounts[0].name)
+                        } else {
+                          setSelectedBank('')
+                        }
+                      }}
+                    >
+                      {PAYMENT_METHODS.map(m => (
+                        <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-              {paymentMethod === 'credit' && !customer && (
-                <Alert severity="warning" sx={{ py: 0.5 }}>
-                  Please select a customer for credit sales
-                </Alert>
-              )}
-
-              {paymentMethod === 'credit' && (
-                <Stack spacing={1.5}>
-                  {customer && (
-                    <TextField
-                      id="checkout-credit-cash-paid"
-                      label="Downpayment Received (optional)"
-                      placeholder="e.g. 1000"
-                      size="small"
-                      type="number"
-                      inputProps={{ min: 0, step: 0.5 }}
-                      value={cashPaid}
-                      onChange={e => setCashPaid(e.target.value)}
-                      fullWidth
-                      helperText={cashPaid && parseFloat(cashPaid) > 0 ? (
-                        parseFloat(cashPaid) >= (total / 100)
-                          ? `Downpayment matches/exceeds total. No credit will be added.`
-                          : `Remaining ₹${((total / 100) - parseFloat(cashPaid)).toFixed(2)} will be added to credit dues`
-                      ) : ''}
-                    />
+                  {paymentMethod === 'upi' && upiAccounts.length > 0 && (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>UPI Account</InputLabel>
+                      <Select
+                        id="checkout-upi-account"
+                        label="UPI Account"
+                        value={selectedUpiAccount}
+                        onChange={e => setSelectedUpiAccount(e.target.value)}
+                        required
+                      >
+                        {upiAccounts.map(ac => (
+                          <MenuItem key={ac.name} value={ac.name}>
+                            {ac.name} ({ac.upi})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   )}
-                  <TextField
-                    id="checkout-credit-days"
-                    label="Credit Days (optional)"
-                    placeholder="e.g. 7"
-                    size="small"
-                    type="number"
-                    inputProps={{ min: 1 }}
-                    value={creditDays}
-                    onChange={e => setCreditDays(e.target.value)}
-                  />
-                </Stack>
+
+                  {paymentMethod === 'upi' && upiAccounts.length === 0 && (
+                    <Alert severity="warning" sx={{ py: 0.5 }}>
+                      No UPI accounts configured under Settings.
+                    </Alert>
+                  )}
+
+                  {paymentMethod === 'bank' && bankAccounts.length > 0 && (
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Bank Account</InputLabel>
+                      <Select
+                        id="checkout-bank-account"
+                        label="Bank Account"
+                        value={selectedBank}
+                        onChange={e => setSelectedBank(e.target.value)}
+                        required
+                      >
+                        {bankAccounts.map(ac => (
+                          <MenuItem key={ac.name} value={ac.name}>
+                            {ac.name} ({ac.account})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+
+                  {paymentMethod === 'bank' && bankAccounts.length === 0 && (
+                    <Alert severity="warning" sx={{ py: 0.5 }}>
+                      No Bank accounts configured under Settings.
+                    </Alert>
+                  )}
+
+                  {['cash', 'upi', 'bank'].includes(paymentMethod) && customer && (
+                    <Stack spacing={1.5}>
+                      <TextField
+                        id="checkout-cash-paid"
+                        label="Amount Received (optional)"
+                        placeholder="e.g. 5000"
+                        size="small"
+                        type="number"
+                        inputProps={{ min: 0, step: 0.5 }}
+                        value={cashPaid}
+                        onChange={e => setCashPaid(e.target.value)}
+                        fullWidth
+                        helperText={cashPaid && parseFloat(cashPaid) > 0 ? (
+                          parseFloat(cashPaid) < (total / 100)
+                            ? `Shortage of ₹${((total / 100) - parseFloat(cashPaid)).toFixed(2)} will be added to credit dues`
+                            : `Surplus of ₹${(parseFloat(cashPaid) - (total / 100)).toFixed(2)} will reduce credit dues`
+                        ) : ''}
+                      />
+                      <TextField
+                        id="checkout-invoice-to-pay"
+                        label="Pay Previous Invoice # (optional)"
+                        placeholder="e.g. INV-0012"
+                        size="small"
+                        value={invoiceToPay}
+                        onChange={e => setInvoiceToPay(e.target.value)}
+                        fullWidth
+                        helperText="Specify to apply surplus to a specific older bill"
+                      />
+                    </Stack>
+                  )}
+
+                  {paymentMethod === 'credit' && !customer && (
+                    <Alert severity="warning" sx={{ py: 0.5 }}>
+                      Please select a customer for credit sales
+                    </Alert>
+                  )}
+
+                  {paymentMethod === 'credit' && (
+                    <Stack spacing={1.5}>
+                      {customer && (
+                        <TextField
+                          id="checkout-credit-cash-paid"
+                          label="Downpayment Received (optional)"
+                          placeholder="e.g. 1000"
+                          size="small"
+                          type="number"
+                          inputProps={{ min: 0, step: 0.5 }}
+                          value={cashPaid}
+                          onChange={e => setCashPaid(e.target.value)}
+                          fullWidth
+                          helperText={cashPaid && parseFloat(cashPaid) > 0 ? (
+                            parseFloat(cashPaid) >= (total / 100)
+                              ? `Downpayment matches/exceeds total. No credit will be added.`
+                              : `Remaining ₹${((total / 100) - parseFloat(cashPaid)).toFixed(2)} will be added to credit dues`
+                          ) : ''}
+                        />
+                      )}
+                      <TextField
+                        id="checkout-credit-days"
+                        label="Credit Days (optional)"
+                        placeholder="e.g. 7"
+                        size="small"
+                        type="number"
+                        inputProps={{ min: 1 }}
+                        value={creditDays}
+                        onChange={e => setCreditDays(e.target.value)}
+                      />
+                    </Stack>
+                  )}
+                </>
               )}
 
               {/* Discount */}
@@ -1410,7 +1600,10 @@ export default function BillingPage() {
                         size="small"
                         variant="contained"
                         onClick={() => {
-                          setCart(held.cart)
+                          setCart(held.cart.map(item => ({
+                            ...item,
+                            cartId: item.cartId || Math.random().toString(36).substring(2, 9)
+                          })))
                           setCustomer(held.customer)
                           setPaymentMethod(held.paymentMethod)
                           setDiscount(held.discount)

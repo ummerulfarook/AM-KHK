@@ -34,6 +34,8 @@ class CreateSaleRequest:
     upi_id: Optional[str] = None
     bank_name: Optional[str] = None
     cash_paid: Optional[int] = None       # paise
+    upi_paid: Optional[int] = None        # paise
+    bank_paid: Optional[int] = None       # paise
     invoice_to_pay: Optional[str] = None
     custom_date: Optional[str] = None
 
@@ -117,6 +119,20 @@ class CreateSaleRequest:
             except (TypeError, ValueError):
                 pass
 
+        upi_paid = None
+        if "upiPaid" in data and data["upiPaid"] is not None:
+            try:
+                upi_paid = _rupees_to_paise(data["upiPaid"])
+            except (TypeError, ValueError):
+                pass
+
+        bank_paid = None
+        if "bankPaid" in data and data["bankPaid"] is not None:
+            try:
+                bank_paid = _rupees_to_paise(data["bankPaid"])
+            except (TypeError, ValueError):
+                pass
+
         invoice_to_pay = (data.get("invoiceToPay") or "").strip() or None
         custom_date = (data.get("customDate") or "").strip() or None
 
@@ -136,6 +152,8 @@ class CreateSaleRequest:
             upi_id=upi_id,
             bank_name=bank_name,
             cash_paid=cash_paid,
+            upi_paid=upi_paid,
+            bank_paid=bank_paid,
             invoice_to_pay=invoice_to_pay,
             custom_date=custom_date,
         )

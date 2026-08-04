@@ -58,7 +58,7 @@ export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, o
 
       {/* Quantity */}
       <TextField
-        id={`cart-qty-${item.productId}`}
+        id={`cart-qty-${item.cartId}`}
         size="small"
         type="text"
         inputMode="decimal"
@@ -68,7 +68,7 @@ export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, o
           setLocalQty(valStr)
           const v = parseFloat(valStr)
           if (!isNaN(v) && v !== 0) {
-            onQtyChange(item.productId, v)
+            onQtyChange(item.cartId, v)
           }
         }}
         onBlur={() => {
@@ -89,7 +89,7 @@ export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, o
 
       {/* Unit price (in rupees for display) */}
       <TextField
-        id={`cart-price-${item.productId}`}
+        id={`cart-price-${item.cartId}`}
         size="small"
         type="text"
         inputMode="decimal"
@@ -99,7 +99,7 @@ export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, o
           setLocalPrice(valStr)
           const v = parseFloat(valStr)
           if (!isNaN(v) && v >= 0) {
-            onPriceChange(item.productId, v)
+            onPriceChange(item.cartId, v)
           }
         }}
         onBlur={() => {
@@ -126,9 +126,9 @@ export default function CartItem({ item, onQtyChange, onPriceChange, onRemove, o
       {/* Remove */}
       <Tooltip title="Remove">
         <IconButton
-          id={`cart-remove-${item.productId}`}
+          id={`cart-remove-${item.cartId}`}
           size="small"
-          onClick={() => onRemove(item.productId)}
+          onClick={() => onRemove(item.cartId)}
           sx={{ color: tokens.red500 }}
         >
           <DeleteRoundedIcon fontSize="small" />

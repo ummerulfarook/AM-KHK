@@ -21,6 +21,9 @@ class RetailSale(db.Model):
     total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     tax: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     amount_paid: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cash_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    upi_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    bank_received: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     previous_balance: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     notes: Mapped[str | None] = mapped_column(String(300))
     partner: Mapped[str] = mapped_column(String(20), nullable=False, default="neutral")
@@ -51,6 +54,9 @@ class RetailSale(db.Model):
             "subtotal": self.subtotal, "discount": self.discount,
             "total": self.total, "tax": self.tax, "notes": self.notes,
             "amountPaid": self.amount_paid,
+            "cashReceived": self.cash_received,
+            "upiReceived": self.upi_received,
+            "bankReceived": self.bank_received,
             "previousBalance": self.previous_balance,
             "partner": self.partner,
             "billingCustomerName": self.billing_customer_name,

@@ -114,11 +114,13 @@ def get_reports_dashboard():
     gross_profit = total_revenue - total_cogs
     gross_margin = (gross_profit / total_revenue * 100) if total_revenue > 0 else 0
 
-    # Cash/UPI/Bank sales
-    cash_sales = sum(s.total for s in retail_sales if s.payment_method == "cash") + sum(o.total_amount for o in wholesale_orders if o.payment_method == "cash")
-    upi_sales = sum(s.total for s in retail_sales if s.payment_method == "upi") + sum(o.total_amount for o in wholesale_orders if o.payment_method == "upi")
-    bank_sales = sum(s.total for s in retail_sales if s.payment_method == "bank") + sum(o.total_amount for o in wholesale_orders if o.payment_method == "bank")
-    credit_sales = sum(s.total for s in retail_sales if s.payment_method == "credit") + sum(o.total_amount for o in wholesale_orders if o.payment_method == "credit")
+    # Cash/UPI/Bank sales (mode-wise split for Retail POS, total-mode for Wholesale)
+    cash_sales = sum(s.cash_received for s in retail_sales) + sum(o.total_amount for o in wholesale_orders if o.payment_method == "cash")
+    upi_sales = sum(s.upi_received for s in retail_sales) + sum(o.total_amount for o in wholesale_orders if o.payment_method == "upi")
+    bank_sales = sum(s.bank_received for s in retail_sales) + sum(o.total_amount for o in wholesale_orders if o.payment_method == "bank")
+    
+    # credit sales represents the portion of sales not paid during checkout
+    credit_sales = sum(s.total - s.amount_paid for s in retail_sales) + sum(o.total_amount for o in wholesale_orders if o.payment_method == "credit")
 
     # Payments received
     pay_stmt = db.select(Payment)
@@ -128,9 +130,13 @@ def get_reports_dashboard():
         pay_stmt = pay_stmt.where(Payment.recorded_at <= end_date)
     payments = db.session.execute(pay_stmt).scalars().all()
     
-    cash_payments = sum(p.amount for p in payments if p.method == "cash")
-    upi_payments = sum(p.amount for p in payments if p.method == "upi")
-    bank_payments = sum(p.amount for p in payments if p.method == "bank")
+    # Exclude checkout downpayments to prevent double counting
+    def is_downpayment(p):
+        return p.notes and ("[POS Downpayment]" in p.notes or "[POS Credit Downpayment]" in p.notes)
+
+    cash_payments = sum(p.amount for p in payments if p.method == "cash" and not is_downpayment(p))
+    upi_payments = sum(p.amount for p in payments if p.method == "upi" and not is_downpayment(p))
+    bank_payments = sum(p.amount for p in payments if p.method == "bank" and not is_downpayment(p))
 
     cash_received = cash_sales + cash_payments
     upi_received = upi_sales + upi_payments
@@ -594,6 +600,9 @@ def get_custom_report():
                 "boxes": 0
             })
         for pay in payments:
+            # Exclude checkout downpayments to prevent double counting
+            if pay.notes and ("[POS Downpayment]" in pay.notes or "[POS Credit Downpayment]" in pay.notes):
+                continue
             c_name = pay.credit_entry.customer.name if (pay.credit_entry and pay.credit_entry.customer) else "N/A"
             ref_num = pay.credit_entry.invoice_ref if pay.credit_entry else ""
             particulars = f"Dues Payment: {c_name}"
