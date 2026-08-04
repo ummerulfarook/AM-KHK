@@ -279,7 +279,7 @@
           <tbody>
             {% for item in sale.items %}
             <tr>
-              <td style="font-weight: bold; color: #000;">₹{{ "%.2f"|format(item.unit_price / 100) }}</td>
+              <td style="font-weight: bold; color: #000;">Rs.{{ "%.2f"|format(item.unit_price / 100) }}</td>
               <td>
                 <b style="text-transform: uppercase; font-size: 12px;">{{ item.product.name if item.product else '—' }}</b>
               </td>
@@ -289,7 +289,7 @@
                   <span style="font-size: 8px;">{{ item.product.unit }}</span>
                 {% endif %}
               </td>
-              <td class="right bold" style="color: #000;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
+              <td class="right bold" style="color: #000;">Rs.{{ "%.2f"|format(item.subtotal / 100) }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -300,36 +300,36 @@
           {% if sale.discount > 0 %}
           <tr>
             <td class="label">Discount</td>
-            <td class="value" style="color: #E5484D;">−₹{{ "%.2f"|format(sale.discount / 100) }}</td>
+            <td class="value" style="color: #E5484D;">−Rs.{{ "%.2f"|format(sale.discount / 100) }}</td>
           </tr>
           {% endif %}
           {% if sale.tax > 0 %}
           <tr>
             <td class="label">Tax</td>
-            <td class="value">₹{{ "%.2f"|format(sale.tax / 100) }}</td>
+            <td class="value">Rs.{{ "%.2f"|format(sale.tax / 100) }}</td>
           </tr>
           {% endif %}
           <tr class="total-row">
             <td class="label">Total</td>
-            <td class="value">₹{{ "%.2f"|format(sale.total / 100) }}</td>
+            <td class="value">Rs.{{ "%.2f"|format(sale.total / 100) }}</td>
           </tr>
           {% if sale.customer %}
           <tr class="due-row">
             <td class="label">Prev. Due</td>
-            <td class="value">₹{{ "%.2f"|format(sale.previous_balance / 100) }}</td>
+            <td class="value">Rs.{{ "%.2f"|format(sale.previous_balance / 100) }}</td>
           </tr>
           <tr>
             <td class="label">Received</td>
-            <td class="value">₹{{ "%.2f"|format(sale.amount_paid / 100) }}</td>
+            <td class="value">Rs.{{ "%.2f"|format(sale.amount_paid / 100) }}</td>
           </tr>
           {% set bill_left = sale.total - sale.amount_paid if sale.total > sale.amount_paid else 0 %}
           <tr>
             <td class="label">Bill Left</td>
-            <td class="value">₹{{ "%.2f"|format(bill_left / 100) }}</td>
+            <td class="value">Rs.{{ "%.2f"|format(bill_left / 100) }}</td>
           </tr>
           <tr class="grand-due">
             <td class="label">Total Due</td>
-            <td class="value">₹{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</td>
+            <td class="value">Rs.{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</td>
           </tr>
           {% endif %}
         </table>
