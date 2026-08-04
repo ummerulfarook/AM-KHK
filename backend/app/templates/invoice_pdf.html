@@ -23,20 +23,19 @@
       width: 90mm;
       padding: 4mm 3mm;
       margin: 0 auto;
-      border-left: 1px dashed #0E3A2A;
-      border-right: 1px dashed #0E3A2A;
     }
 
     /* ── Header ── */
     .header {
-      padding-bottom: 5px;
-      border-bottom: 2px solid #059669;
-      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 2.5px solid #059669;
+      margin-bottom: 12px;
     }
 
     .header-table {
       width: 100%;
       border: none;
+      margin-bottom: 4px;
     }
     .header-table td {
       border: none;
@@ -44,29 +43,37 @@
       vertical-align: middle;
     }
 
-    .shop-name {
-      font-size: 14px;
+    .shop-name-row1 {
+      font-size: 16px;
       font-weight: bold;
       color: #0E3A2A;
       text-transform: uppercase;
-      letter-spacing: 0.2px;
+      line-height: 1.1;
+    }
+    .shop-name-row2 {
+      font-size: 16px;
+      font-weight: bold;
+      color: #0E3A2A;
+      text-transform: uppercase;
+      line-height: 1.1;
     }
 
     .header-address {
-      font-size: 8.5px;
+      font-size: 8px;
       color: #000000;
       font-weight: bold;
-      margin-top: 4px;
-      margin-bottom: 5px;
+      margin-top: 6px;
+      margin-bottom: 6px;
     }
 
     .invoice-info {
       width: 100%;
       border: none;
+      margin-top: 4px;
     }
     .invoice-info td {
       border: none;
-      padding: 2px 0;
+      padding: 0;
       font-size: 11px;
       font-weight: bold;
       color: #0E3A2A;
@@ -75,54 +82,55 @@
 
     /* ── Customer block ── */
     .customer-block {
-      background: #EEF5F0;
       border: 1px solid #c2d1c7;
-      padding: 4px 6px;
-      margin-bottom: 6px;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-bottom: 12px;
+      background: #ffffff;
     }
     .customer-label {
       font-size: 8px;
       font-weight: bold;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #134832;
-      margin-bottom: 2px;
+      color: #059669;
+      margin-bottom: 4px;
     }
     .customer-name {
-      font-size: 11px;
+      font-size: 12px;
       font-weight: bold;
-      color: #0F2419;
+      color: #0E3A2A;
     }
     .customer-phone {
-      font-size: 9.5px;
+      font-size: 10px;
       color: #000000;
       font-weight: bold;
+      margin-top: 2px;
     }
 
     /* ── Items table ── */
     .items-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 6px;
+      margin-bottom: 10px;
     }
     .items-table thead th {
-      background: #EEF5F0;
       color: #0E3A2A;
-      font-size: 9px;
+      font-size: 10px;
       font-weight: bold;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 3px 4px;
+      padding: 6px 4px;
       text-align: left;
+      border-top: 2px solid #0E3A2A;
       border-bottom: 2px solid #0E3A2A;
     }
     .items-table thead th.right { text-align: right; }
 
     .items-table tbody td {
-      padding: 3px 4px;
-      font-size: 10px;
-      border-bottom: 1px solid #ccc;
-      color: #0F2419;
+      padding: 6px 4px;
+      font-size: 11px;
+      border-bottom: 1px solid #0E3A2A;
+      color: #000000;
+      vertical-align: middle;
     }
     .items-table tbody td.right { text-align: right; }
     .items-table tbody td.bold { font-weight: bold; }
@@ -131,50 +139,38 @@
     .totals-table {
       width: 55%;
       margin-left: auto;
-      margin-bottom: 6px;
-      border-top: 1px solid #059669;
-      padding-top: 4px;
+      margin-bottom: 10px;
     }
     .totals-table td {
-      padding: 2px 0;
+      padding: 3px 0;
       font-size: 11px;
       color: #0F2419;
       font-weight: normal;
       border: none;
     }
     .totals-table .label { font-weight: bold; color: #134832; text-align: left; }
-    .totals-table .value { text-align: right; font-weight: bold; }
+    .totals-table .value { text-align: right; font-weight: bold; color: #000000; }
+    
     .totals-table .total-row td {
-      border-top: 2px solid #000000;
-      padding-top: 6px;
+      border-top: 3px double #0E3A2A;
+      border-bottom: 2px solid #059669;
+      padding: 6px 0;
       font-size: 14px;
       font-weight: bold;
       color: #000000;
     }
+    .totals-table .total-row .value {
+      font-size: 15px;
+    }
+    
     .totals-table .due-row td {
-      border-top: 1px dashed #000000;
+      border-top: 1px dashed #ccc;
       padding-top: 4px;
     }
     .totals-table .grand-due td {
       font-size: 13px;
       font-weight: bold;
       color: #000000;
-    }
-
-    /* ── Payment badge ── */
-    .payment-row {
-      margin-bottom: 8px;
-    }
-    .payment-label { font-size: 10px; color: #134832; font-weight: bold; }
-    .payment-badge {
-      display: inline;
-      padding: 1px 8px;
-      border: 1px solid #059669;
-      font-size: 9px;
-      font-weight: bold;
-      text-transform: uppercase;
-      color: #059669;
-      background: #ffffff;
     }
 
     /* ── Notes ── */
@@ -190,12 +186,13 @@
 
     /* ── Footer ── */
     .footer {
-      border-top: 1px solid #059669;
-      padding-top: 8px;
+      border-top: 2px solid #059669;
+      padding-top: 12px;
       text-align: center;
-      color: #134832;
-      font-size: 9px;
+      color: #0E3A2A;
+      font-size: 12px;
       font-weight: bold;
+      margin-top: 15px;
     }
   </style>
 </head>
@@ -208,12 +205,13 @@
     <table class="header-table">
       <tr>
         {% if logo_base64 %}
-        <td style="width: 40px;">
-          <img src="{{ logo_base64 }}" style="max-height: 36px;" alt="Logo" />
+        <td style="width: 48px; padding-right: 8px;">
+          <img src="{{ logo_base64 }}" style="max-height: 40px;" alt="Logo" />
         </td>
         {% endif %}
         <td>
-          <div class="shop-name">AM & KHK Vegetable Merchants</div>
+          <div class="shop-name-row1">AM & KHK VEGETABLE</div>
+          <div class="shop-name-row2">MERCHANTS</div>
         </td>
       </tr>
     </table>
@@ -324,7 +322,7 @@
   {% endif %}
 
   <!-- Footer -->
-  <div class="footer" style="margin-top: 10px;">
+  <div class="footer">
     Thank you for your business!
   </div>
 

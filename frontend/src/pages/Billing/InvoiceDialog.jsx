@@ -68,7 +68,7 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
       const fileName = `${sale.invoiceNumber || sale.id}.pdf`
       const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
 
-      // 2. Try Web Share API first (works on mobile Chrome/Safari)
+      // 2. Use Web Share API to share the PDF file directly
       if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
           title: `Invoice ${sale.invoiceNumber}`,
@@ -77,37 +77,30 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
         })
         showToast('Invoice shared successfully!')
       } else {
-        // Desktop fallback: download PDF first, then open WhatsApp chat
+        // Fallback: download the PDF and open WhatsApp with text
         const url = URL.createObjectURL(pdfBlob)
         const a = document.createElement('a')
         a.href = url
         a.download = fileName
-        document.body.appendChild(a)
         a.click()
-        document.body.removeChild(a)
         URL.revokeObjectURL(url)
 
-        // Open WhatsApp chat with customer number pre-filled
+        const text = encodeURIComponent(
+          `Dear ${sale.customerName || 'Customer'},\n\n` +
+          `Your invoice *${sale.invoiceNumber}* has been generated.\n` +
+          `Total Amount: *${fmt(sale.total)}*\n` +
+          `The PDF invoice has been downloaded. Please share it manually.\n\n` +
+          `Thank you for shopping at AM & KHK Vegetable Merchants!`
+        )
         const phone = sale.customerPhone ? sale.customerPhone.replace(/\D/g, '') : ''
         const waUrl = phone
-          ? `https://wa.me/91${phone}`
-          : `https://wa.me/`
-        
-        // Small delay to allow download to initiate before opening WhatsApp
-        setTimeout(() => {
-          window.open(waUrl, '_blank')
-        }, 500)
-
-        alert(
-          `📄 PDF invoice "${fileName}" has been downloaded.\n\n` +
-          `WhatsApp will open now. Please:\n` +
-          `1. Click the 📎 (attach) icon in WhatsApp\n` +
-          `2. Select the downloaded PDF file\n` +
-          `3. Send it to the customer`
-        )
-        showToast('PDF downloaded! Attach it in WhatsApp.', 'info')
+          ? `https://wa.me/91${phone}?text=${text}`
+          : `https://wa.me/?text=${text}`
+        window.open(waUrl, '_blank')
+        showToast('PDF downloaded. Share it via WhatsApp.', 'info')
       }
     } catch (err) {
+      // User may have cancelled the share dialog — that's fine
       if (err?.name === 'AbortError') {
         showToast('Share cancelled', 'info')
       } else {
