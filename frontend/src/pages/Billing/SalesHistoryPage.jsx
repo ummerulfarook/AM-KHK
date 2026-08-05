@@ -17,6 +17,7 @@ import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
+import api from '../../api/authApi'
 import { billingApi } from '../../api/billingApi'
 import { inventoryApi } from '../../api/inventoryApi'
 import StatusBadge from '../../components/common/StatusBadge'
@@ -73,21 +74,52 @@ export default function SalesHistoryPage() {
 
   const handleWhatsAppShare = async (sale) => {
     try {
-      await billingApi.downloadInvoice(sale.id, sale.invoiceNumber)
-      const text = encodeURIComponent(
-        `Dear ${sale.customerName || sale.customer?.name || 'Customer'},\n\n` +
-        `Your invoice *${sale.invoiceNumber}* has been generated.\n` +
-        `Total Amount: *${fmt(sale.total)}*\n` +
-        `The PDF invoice has been downloaded. Please share it manually.\n\n` +
-        `Thank you for shopping at AM & KHK Vegetable Merchants!`
-      )
-      const phone = (sale.customerPhone || sale.customer?.phone || '').replace(/\D/g, '')
-      const waUrl = phone
-        ? `https://wa.me/91${phone}?text=${text}`
-        : `https://wa.me/?text=${text}`
-      window.open(waUrl, '_blank')
+      // 1. Generate the PDF Blob from the backend
+      const response = await api.get(`/api/billing/${sale.id}/pdf`, { responseType: 'blob' })
+      const pdfBlob = response.data
+      const fileName = `${sale.invoiceNumber || sale.id}.pdf`
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
+
+      // 2. Use Web Share API to share the PDF file directly
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          title: `Invoice ${sale.invoiceNumber || sale.id}`,
+          text: `Invoice ${sale.invoiceNumber || sale.id} — ${fmt(sale.total)}\nThank you for shopping at AM & KHK Vegetable Merchants!`,
+          files: [pdfFile],
+        })
+        showToast('Invoice shared successfully!')
+      } else {
+        // Fallback: download the PDF and open WhatsApp with text
+        const url = URL.createObjectURL(pdfBlob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+
+        const text = encodeURIComponent(
+          `Dear ${sale.customerName || 'Customer'},\n\n` +
+          `Your invoice *${sale.invoiceNumber || sale.id}* has been generated.\n` +
+          `Total Amount: *${fmt(sale.total)}*\n` +
+          `The PDF invoice has been downloaded. Please share it manually.\n\n` +
+          `Thank you for shopping at AM & KHK Vegetable Merchants!`
+        )
+        const phone = (sale.customerPhone || sale.customer?.phone || '').replace(/\D/g, '')
+        const waUrl = phone
+          ? `https://wa.me/91${phone}?text=${text}`
+          : `https://wa.me/?text=${text}`
+        window.open(waUrl, '_blank')
+        showToast('PDF downloaded. Share it via WhatsApp.', 'info')
+      }
     } catch (err) {
-      alert('Failed to process WhatsApp share')
+      if (err?.name === 'AbortError') {
+        showToast('Share cancelled', 'info')
+      } else {
+        console.error(err)
+        showToast('Failed to share PDF', 'error')
+      }
     }
   }
 

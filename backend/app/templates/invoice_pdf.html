@@ -40,7 +40,6 @@
     /* ── Header ── */
     .header {
       padding-bottom: 6px;
-      border-bottom: 2.5px solid #059669;
       margin-bottom: 12px;
     }
 
@@ -55,18 +54,27 @@
       vertical-align: middle;
     }
 
-    .shop-name {
-      font-size: 16.5px;
+    .shop-name-row1 {
+      font-size: 19px;
       font-weight: 800;
       color: #0E3A2A;
       text-transform: uppercase;
-      line-height: 1.2;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
+    }
+    .shop-name-row2 {
+      font-size: 19px;
+      font-weight: 800;
+      color: #0E3A2A;
+      text-transform: uppercase;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
     }
 
     .header-address {
-      font-size: 9.5px;
+      font-size: 8px;
       color: #000000;
-      font-weight: 700;
+      font-weight: bold;
       line-height: 1.3;
       margin-top: 5px;
       margin-bottom: 6px;
@@ -74,12 +82,14 @@
 
     .invoice-info {
       width: 100%;
-      border: none;
-      margin-top: 4px;
+      margin-top: 8px;
+      margin-bottom: 12px;
+      border-top: 2.5px solid #059669;
+      border-bottom: 2.5px solid #059669;
     }
     .invoice-info td {
       border: none;
-      padding: 0;
+      padding: 4px 0;
       font-size: 12px;
       font-weight: 800;
       color: #0E3A2A;
@@ -87,25 +97,29 @@
     .invoice-info .right { text-align: right; }
 
     /* ── Customer block ── */
-    .customer-block {
-      background: #EEF5F0;
-      border: 1px solid #c2d1c7;
+    .customer-block-table {
+      width: 100%;
+      border: 1.5px solid #c2d1c7;
       border-radius: 8px;
-      padding: 5px 8px;
-      margin-bottom: 8px;
+      background: #ffffff;
+      margin-bottom: 12px;
+    }
+    .customer-block-td {
+      border: none;
+      padding: 10px 14px;
     }
     .customer-label {
       font-size: 9px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #134832;
+      color: #059669;
       margin-bottom: 3px;
     }
     .customer-name {
       font-size: 13px;
       font-weight: 700;
-      color: #0F2419;
+      color: #0E3A2A;
     }
     .customer-phone {
       font-size: 11px;
@@ -135,7 +149,7 @@
     .items-table tbody td {
       padding: 6px 6px;
       font-size: 11.5px;
-      border-bottom: 1.5px solid #0F2419;
+      border-bottom: 0.75px solid #E2EBE4;
       color: #0F2419;
       vertical-align: middle;
     }
@@ -146,6 +160,7 @@
     .totals-table {
       width: 58%;
       margin-left: auto;
+      margin-top: 8px;
       margin-bottom: 8px;
       border-top: 1.5px solid #059669;
       padding-top: 6px;
@@ -157,25 +172,24 @@
       font-weight: 500;
       border: none;
     }
-    .totals-table .label { font-weight: 600; color: #134832; text-align: left; }
-    .totals-table .value { text-align: right; font-weight: bold; color: #000000; }
+    .totals-table .totals-label { font-weight: 600; color: #134832; text-align: left; }
+    .totals-table .totals-value { text-align: right; font-weight: bold; color: #000000; }
     
     .totals-table .total-row td {
       border-top: 2px solid #000000;
-      margin-top: 7px;
-      padding-top: 9px;
+      padding-top: 7px;
+      padding-bottom: 7px;
       font-size: 14.5px;
       font-weight: bold;
       color: #0E3A2A;
     }
-    .totals-table .total-row .value {
+    .totals-table .total-row .totals-value {
       font-size: 17px;
       font-weight: 800;
     }
     
     .totals-table .due-row td {
       border-top: 1px dashed #000000;
-      margin-top: 6px;
       padding-top: 6px;
     }
     .totals-table .grand-due td {
@@ -183,7 +197,7 @@
       font-weight: bold;
       color: #000000;
     }
-    .totals-table .grand-due .value {
+    .totals-table .grand-due .totals-value {
       font-size: 16.5px;
       font-weight: 900;
     }
@@ -214,22 +228,23 @@
   </style>
 </head>
 <body>
-  <table class="invoice-container" align="center" width="100mm" cellpadding="0" cellspacing="0">
+  <table class="invoice-container" align="center" width="100mm" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td class="invoice-body">
 
         <!-- Header -->
         <div class="header">
           <!-- Row 1: Logo & Shop Name -->
-          <table class="header-table">
+          <table class="header-table" border="0" cellpadding="0" cellspacing="0">
             <tr>
               {% if logo_base64 %}
-              <td style="width: 44px; padding-right: 10px;">
+              <td style="width: 44px; padding-right: 12px; border: none; vertical-align: middle;">
                 <img src="{{ logo_base64 }}" style="max-height: 44px; border-radius: 6px;" alt="Logo" />
               </td>
               {% endif %}
-              <td>
-                <div class="shop-name">AM & KHK Vegetable Merchants</div>
+              <td style="border: none; vertical-align: middle;">
+                <div class="shop-name-row1">AM & KHK VEGETABLE</div>
+                <div class="shop-name-row2">MERCHANTS</div>
               </td>
             </tr>
           </table>
@@ -240,34 +255,38 @@
           </div>
 
           <!-- Row 3: Invoice Info -->
-          <table class="invoice-info">
+          <table class="invoice-info" border="0" cellpadding="0" cellspacing="0">
             <tr>
-              <td>INVOICE: {{ sale.invoice_number }}</td>
-              <td class="right">DATE: {{ formatted_date }}</td>
+              <td style="border: none;">INVOICE: {{ sale.invoice_number }}</td>
+              <td class="right" style="border: none;">DATE: {{ formatted_date }}</td>
             </tr>
           </table>
         </div>
 
-        <!-- Customer -->
-        <div class="customer-block">
-          <div class="customer-label">Bill To</div>
-          <div class="customer-name">
-            {% if sale.customer %}
-              {{ sale.customer.name }}
-            {% elif sale.billing_customer_name %}
-              {{ sale.billing_customer_name }}
-            {% else %}
-              Walk-in Customer
-            {% endif %}
-          </div>
-          {% set phone = sale.customer.phone if (sale.customer and sale.customer.phone) else sale.billing_customer_phone %}
-          {% if phone %}
-            <div class="customer-phone">{{ phone[:4] }}*****</div>
-          {% endif %}
-        </div>
+        <!-- Customer Block Table -->
+        <table class="customer-block-table" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td class="customer-block-td">
+              <div class="customer-label">BILL TO</div>
+              <div class="customer-name">
+                {% if sale.customer %}
+                  {{ sale.customer.name }}
+                {% elif sale.billing_customer_name %}
+                  {{ sale.billing_customer_name }}
+                {% else %}
+                  Walk-in Customer
+                {% endif %}
+              </div>
+              {% set phone = sale.customer.phone if (sale.customer and sale.customer.phone) else sale.billing_customer_phone %}
+              {% if phone %}
+                <div class="customer-phone">{{ phone[:4] }}*****</div>
+              {% endif %}
+            </td>
+          </tr>
+        </table>
 
         <!-- Items table -->
-        <table class="items-table">
+        <table class="items-table" border="0" cellpadding="0" cellspacing="0">
           <thead>
             <tr>
               <th style="width: 22%;">Rate</th>
@@ -279,57 +298,54 @@
           <tbody>
             {% for item in sale.items %}
             <tr>
-              <td style="font-weight: bold; color: #000;">Rs.{{ "%.2f"|format(item.unit_price / 100) }}</td>
-              <td>
+              <td style="font-weight: bold; color: #000; border-bottom: 0.75px solid #E2EBE4;">Rs.{{ "%.2f"|format(item.unit_price / 100) }}</td>
+              <td style="border-bottom: 0.75px solid #E2EBE4;">
                 <b style="text-transform: uppercase; font-size: 12px;">{{ item.product.name if item.product else '—' }}</b>
               </td>
-              <td class="right" style="font-weight: bold; color: #000;">
-                {{ item.quantity }}
-                {% if item.product and item.product.unit %}
-                  <span style="font-size: 8px;">{{ item.product.unit }}</span>
-                {% endif %}
+              <td class="right" style="font-weight: bold; color: #000; border-bottom: 0.75px solid #E2EBE4;">
+                {{ item.quantity }}{% if item.product and item.product.unit %} {{ item.product.unit }}{% endif %}
               </td>
-              <td class="right bold" style="color: #000;">Rs.{{ "%.2f"|format(item.subtotal / 100) }}</td>
+              <td class="right bold" style="color: #000; border-bottom: 0.75px solid #E2EBE4;">Rs.{{ "%.2f"|format(item.subtotal / 100) }}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
 
         <!-- Totals -->
-        <table class="totals-table">
+        <table class="totals-table" border="0" cellpadding="0" cellspacing="0">
           {% if sale.discount > 0 %}
           <tr>
-            <td class="label">Discount</td>
-            <td class="value" style="color: #E5484D;">−Rs.{{ "%.2f"|format(sale.discount / 100) }}</td>
+            <td class="totals-label">Discount</td>
+            <td class="totals-value" style="color: #E5484D;">−Rs.{{ "%.2f"|format(sale.discount / 100) }}</td>
           </tr>
           {% endif %}
           {% if sale.tax > 0 %}
           <tr>
-            <td class="label">Tax</td>
-            <td class="value">Rs.{{ "%.2f"|format(sale.tax / 100) }}</td>
+            <td class="totals-label">Tax</td>
+            <td class="totals-value">Rs.{{ "%.2f"|format(sale.tax / 100) }}</td>
           </tr>
           {% endif %}
           <tr class="total-row">
-            <td class="label">Total</td>
-            <td class="value">Rs.{{ "%.2f"|format(sale.total / 100) }}</td>
+            <td class="totals-label">Total</td>
+            <td class="totals-value">Rs.{{ "%.2f"|format(sale.total / 100) }}</td>
           </tr>
           {% if sale.customer %}
           <tr class="due-row">
-            <td class="label">Prev. Due</td>
-            <td class="value">Rs.{{ "%.2f"|format(sale.previous_balance / 100) }}</td>
+            <td class="totals-label">Prev. Due</td>
+            <td class="totals-value">Rs.{{ "%.2f"|format(sale.previous_balance / 100) }}</td>
           </tr>
           <tr>
-            <td class="label">Received</td>
-            <td class="value">Rs.{{ "%.2f"|format(sale.amount_paid / 100) }}</td>
+            <td class="totals-label">Received</td>
+            <td class="totals-value">Rs.{{ "%.2f"|format(sale.amount_paid / 100) }}</td>
           </tr>
           {% set bill_left = sale.total - sale.amount_paid if sale.total > sale.amount_paid else 0 %}
           <tr>
-            <td class="label">Bill Left</td>
-            <td class="value">Rs.{{ "%.2f"|format(bill_left / 100) }}</td>
+            <td class="totals-label">Bill Left</td>
+            <td class="totals-value">Rs.{{ "%.2f"|format(bill_left / 100) }}</td>
           </tr>
           <tr class="grand-due">
-            <td class="label">Total Due</td>
-            <td class="value">Rs.{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</td>
+            <td class="totals-label">Total Due</td>
+            <td class="totals-value">Rs.{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</td>
           </tr>
           {% endif %}
         </table>
