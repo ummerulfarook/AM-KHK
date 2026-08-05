@@ -1,36 +1,14 @@
 """
 Invoice service — PDF generation and thermal receipt printing.
 
-WeasyPrint requires GTK runtime (libcairo, pango) on Windows.
-If unavailable, render_invoice_html() still works; generate_invoice_pdf() raises ImportError.
-The billing route catches this and falls back to serving HTML.
+PDF generation uses Playwright (headless Chromium) so it renders invoice.html
+exactly as the browser does — same fonts, flexbox, logo, colours.
+No duplicate template: render_invoice_html() / invoice.html is the single source.
 """
 import os
 import io
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-
 import base64
-
-# xhtml2pdf NamedTemporaryFile monkeypatch to fix Windows permission locking bugs
-try:
-    import tempfile
-    from xhtml2pdf.files import BaseFile, files_tmp
-    
-    def patched_get_named_tmp_file(self):
-        data = self.get_data()
-        tmp_file = tempfile.NamedTemporaryFile(suffix=self.suffix, delete=False)
-        if data:
-            tmp_file.write(data)
-            tmp_file.flush()
-            tmp_file.close()  # Close the file descriptor so ReportLab can read it on Windows
-            files_tmp.append(tmp_file)
-        if self.path is None:
-            self.path = tmp_file.name
-        return tmp_file
-        
-    BaseFile.get_named_tmp_file = patched_get_named_tmp_file
-except Exception:
-    pass
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 # Locate the templates folder relative to this file
 _TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
@@ -57,7 +35,13 @@ def _get_logo_base64() -> str:
 
 
 def render_invoice_html(sale, settings: dict) -> str:
-    """Render the invoice Jinja2 template to an HTML string."""
+    """
+    Render invoice.html (the single invoice template) to an HTML string.
+    Used by:
+      - Laser Print preview  (/api/billing/<id>/preview)
+      - PDF download         (/api/billing/<id>/pdf)
+      - WhatsApp PDF share
+    """
     from datetime import timezone, timedelta
     ist_tz = timezone(timedelta(hours=5, minutes=30))
     created_at_ist = sale.created_at.astimezone(ist_tz)
@@ -69,64 +53,105 @@ def render_invoice_html(sale, settings: dict) -> str:
         sale=sale,
         settings=settings,
         logo_base64=logo_base64,
-        formatted_date=formatted_date
-    )
-
-
-def render_invoice_pdf_html(sale, settings: dict) -> str:
-    """Render the PDF-specific invoice template (xhtml2pdf-compatible, no flexbox)."""
-    from datetime import timezone, timedelta
-    import os
-    ist_tz = timezone(timedelta(hours=5, minutes=30))
-    created_at_ist = sale.created_at.astimezone(ist_tz)
-    formatted_date = created_at_ist.strftime("%d %b %Y")
-
-    tpl = _jinja_env.get_template("invoice_pdf.html")
-    logo_base64 = _get_logo_base64()
-    roboto_font_path = os.path.abspath("backend/app/static/fonts/Roboto-Regular.ttf").replace("\\", "/")
-    return tpl.render(
-        sale=sale,
-        settings=settings,
-        logo_base64=logo_base64,
         formatted_date=formatted_date,
-        roboto_font_path=roboto_font_path
     )
 
 
 def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
     """
-    Convert rendered HTML to PDF bytes.
-    If sale and settings are provided, re-renders using the PDF-specific template
-    for better xhtml2pdf compatibility.
-    Uses xhtml2pdf (pure Python, no GTK needed) as the primary engine.
-    Falls back to WeasyPrint if xhtml2pdf is unavailable.
-    Raises ImportError if neither is available.
+    Convert the invoice HTML to PDF bytes using Playwright (headless Chromium).
+
+    Playwright renders the page exactly as Chrome/Edge does, so the PDF is
+    pixel-identical to what the user sees during Laser Print.
+
+    Scale is set to 1.2 (20% larger) so the invoice reads comfortably on
+    mobile screens and is crisp when shared via WhatsApp.
+
+    Falls back to xhtml2pdf if Playwright is not available.
     """
-    # Primary: xhtml2pdf (works on Windows without GTK)
+    # Re-render from invoice.html (single source of truth)
+    if sale is not None and settings is not None:
+        html = render_invoice_html(sale, settings)
+
+    # ── Primary: Playwright / headless Chromium ────────────────────────────
     try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            page = browser.new_page()
+
+            # Load the HTML directly as a data URI so relative assets resolve
+            page.set_content(html, wait_until="networkidle")
+
+            # Wait for web fonts (Google Fonts) to load
+            try:
+                page.wait_for_timeout(1500)
+            except Exception:
+                pass
+
+            pdf_bytes = page.pdf(
+                # Paper just big enough for a 98 mm invoice strip +
+                # a little breathing room; let Playwright decide page count
+                format="A4",
+                print_background=True,
+                # Reduce margins so the content fills the page nicely
+                margin={
+                    "top": "8mm",
+                    "bottom": "8mm",
+                    "left": "20mm",   # keeps the dashed side-borders visible
+                    "right": "20mm",
+                },
+                # 20% scale-up → easier to read on mobile / WhatsApp
+                scale=1.2,
+            )
+
+            browser.close()
+            return pdf_bytes
+
+    except ImportError:
+        pass  # Playwright not installed — fall through to xhtml2pdf
+
+    # ── Fallback: xhtml2pdf (table-based, no flexbox) ─────────────────────
+    # This path only runs if Playwright is unavailable.  The output will look
+    # slightly different from the laser-print template because xhtml2pdf
+    # cannot render CSS flexbox.  Install Playwright for the best result.
+    try:
+        # xhtml2pdf Windows NamedTemporaryFile monkeypatch
+        try:
+            import tempfile
+            from xhtml2pdf.files import BaseFile, files_tmp
+
+            def _patched_get_named_tmp_file(self):
+                data = self.get_data()
+                tmp_file = tempfile.NamedTemporaryFile(suffix=self.suffix, delete=False)
+                if data:
+                    tmp_file.write(data)
+                    tmp_file.flush()
+                    tmp_file.close()
+                    files_tmp.append(tmp_file)
+                if self.path is None:
+                    self.path = tmp_file.name
+                return tmp_file
+
+            BaseFile.get_named_tmp_file = _patched_get_named_tmp_file
+        except Exception:
+            pass
+
         from xhtml2pdf import pisa
-
-        # Use the PDF-specific template if sale object is available
-        if sale and settings is not None:
-            html = render_invoice_pdf_html(sale, settings)
-
         result_buffer = io.BytesIO()
         pisa_status = pisa.CreatePDF(io.StringIO(html), dest=result_buffer)
         if pisa_status.err:
             raise RuntimeError(f"xhtml2pdf conversion error (code {pisa_status.err})")
         return result_buffer.getvalue()
+
     except ImportError:
         pass
 
-    # Fallback: WeasyPrint (requires GTK runtime on Windows)
-    try:
-        from weasyprint import HTML as WeasyprintHTML
-        return WeasyprintHTML(string=html).write_pdf()
-    except Exception as exc:
-        raise ImportError(
-            "Neither xhtml2pdf nor WeasyPrint is available for PDF generation. "
-            "Install xhtml2pdf: pip install xhtml2pdf"
-        ) from exc
+    raise ImportError(
+        "No PDF engine is available. "
+        "Install Playwright: pip install playwright && python -m playwright install chromium"
+    )
 
 
 def print_thermal_receipt(sale, printer_config: dict) -> bool:
@@ -182,13 +207,13 @@ def _write_receipt(p, sale):
 
     p.set(align="left")
     p.text(f"Invoice : {sale.invoice_number}\n")
-    
+
     from datetime import timezone, timedelta
     ist_tz = timezone(timedelta(hours=5, minutes=30))
     created_at_ist = sale.created_at.astimezone(ist_tz)
     date_str = created_at_ist.strftime('%d/%m/%Y')
     p.text(f"Date    : {date_str}\n")
-    
+
     customer_name = sale.customer.name if sale.customer else (sale.billing_customer_name or "Walk-in")
     p.text(f"Customer: {customer_name}\n")
     phone = sale.customer.phone if (sale.customer and sale.customer.phone) else sale.billing_customer_phone
