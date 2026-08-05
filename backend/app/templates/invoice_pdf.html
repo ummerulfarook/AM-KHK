@@ -24,29 +24,22 @@
       padding: 0;
     }
 
-    /* Outer wrapper table to center 100mm wide invoice on A4 sheet with dashed side borders */
+    /* ── Outer wrapper — 98mm centered with dashed borders, matching invoice.html ── */
     .invoice-container {
-      width: 100mm;
-      margin: 0 auto;
+      width: 98mm;
+      background: #ffffff;
       border-left: 1.5px dashed #0E3A2A;
       border-right: 1.5px dashed #0E3A2A;
-      background: #ffffff;
     }
 
     .invoice-body {
-      padding: 6mm 6.5mm;
+      padding: 6mm 4mm;
     }
 
     /* ── Header ── */
-    .header {
-      padding-bottom: 6px;
-      margin-bottom: 12px;
-    }
-
     .header-table {
       width: 100%;
-      border: none;
-      margin-bottom: 4px;
+      margin-bottom: 5px;
     }
     .header-table td {
       border: none;
@@ -54,38 +47,30 @@
       vertical-align: middle;
     }
 
-    .shop-name-row1 {
-      font-size: 19px;
+    .shop-name {
+      font-size: 16.5px;
       font-weight: 800;
       color: #0E3A2A;
       text-transform: uppercase;
-      line-height: 1.15;
-      letter-spacing: -0.5px;
-    }
-    .shop-name-row2 {
-      font-size: 19px;
-      font-weight: 800;
-      color: #0E3A2A;
-      text-transform: uppercase;
-      line-height: 1.15;
-      letter-spacing: -0.5px;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
     }
 
     .header-address {
-      font-size: 8px;
+      font-size: 9.5px;
       color: #000000;
-      font-weight: bold;
+      font-weight: 700;
       line-height: 1.3;
-      margin-top: 5px;
       margin-bottom: 6px;
     }
 
+    /* Invoice number + date row — same as invoice.html header-row3 */
     .invoice-info {
       width: 100%;
-      margin-top: 8px;
-      margin-bottom: 12px;
       border-top: 2.5px solid #059669;
       border-bottom: 2.5px solid #059669;
+      margin-top: 6px;
+      margin-bottom: 12px;
     }
     .invoice-info td {
       border: none;
@@ -96,30 +81,35 @@
     }
     .invoice-info .right { text-align: right; }
 
-    /* ── Customer block ── */
-    .customer-block-table {
-      width: 100%;
-      border: 1.5px solid #c2d1c7;
-      border-radius: 8px;
-      background: #ffffff;
+    /* Divider after header */
+    .header-divider {
+      height: 0;
+      border-top: 2.5px solid #059669;
       margin-bottom: 12px;
+    }
+
+    /* ── Customer block ── */
+    .customer-block {
+      background: #EEF5F0;
+      border: 1px solid #c2d1c7;
+      margin-bottom: 8px;
     }
     .customer-block-td {
       border: none;
-      padding: 10px 14px;
+      padding: 5px 8px;
     }
     .customer-label {
       font-size: 9px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #059669;
+      letter-spacing: 0.08em;
+      color: #134832;
       margin-bottom: 3px;
     }
     .customer-name {
       font-size: 13px;
       font-weight: 700;
-      color: #0E3A2A;
+      color: #0F2419;
     }
     .customer-phone {
       font-size: 11px;
@@ -139,65 +129,86 @@
       font-size: 10.5px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.05em;
       padding: 4px 6px;
       text-align: left;
       border-bottom: 2.5px solid #0E3A2A;
+      border-top: none;
+      border-left: none;
+      border-right: none;
     }
     .items-table thead th.right { text-align: right; }
 
     .items-table tbody td {
-      padding: 6px 6px;
+      padding: 4px 6px;
       font-size: 11.5px;
-      border-bottom: 0.75px solid #E2EBE4;
+      border-bottom: 1.5px solid #0F2419;
+      border-top: none;
+      border-left: none;
+      border-right: none;
       color: #0F2419;
-      vertical-align: middle;
+      vertical-align: top;
     }
     .items-table tbody td.right { text-align: right; }
-    .items-table tbody td.bold { font-weight: bold; }
 
-    /* ── Totals ── */
-    .totals-table {
-      width: 58%;
-      margin-left: auto;
-      margin-top: 8px;
+    /* ── Totals section — right-aligned 58% width ── */
+    .totals-wrap {
+      width: 100%;
       margin-bottom: 8px;
+    }
+    .totals-wrap td {
+      border: none;
+      padding: 0;
+    }
+    .totals-spacer {
+      /* left spacer cell, takes remaining width */
+    }
+    .totals-inner {
+      width: 58%;
       border-top: 1.5px solid #059669;
       padding-top: 6px;
     }
-    .totals-table td {
+    .totals-inner td {
+      border: none;
       padding: 3px 0;
       font-size: 12px;
       color: #0F2419;
       font-weight: 500;
-      border: none;
     }
-    .totals-table .totals-label { font-weight: 600; color: #134832; text-align: left; }
-    .totals-table .totals-value { text-align: right; font-weight: bold; color: #000000; }
-    
-    .totals-table .total-row td {
-      border-top: 2px solid #000000;
+    .totals-inner .t-label { font-weight: 600; color: #134832; text-align: left; }
+    .totals-inner .t-value { text-align: right; font-weight: 700; color: #000000; }
+
+    .totals-inner .row-total td {
+      border-top: 2.5px solid #0E3A2A;
       padding-top: 7px;
       padding-bottom: 7px;
       font-size: 14.5px;
-      font-weight: bold;
+      font-weight: 800;
       color: #0E3A2A;
     }
-    .totals-table .total-row .totals-value {
-      font-size: 17px;
+    .totals-inner .row-total .t-value {
+      font-size: 14.5px;
       font-weight: 800;
     }
-    
-    .totals-table .due-row td {
+
+    .totals-inner .row-due-first td {
       border-top: 1px dashed #000000;
       padding-top: 6px;
-    }
-    .totals-table .grand-due td {
-      font-size: 15px;
-      font-weight: bold;
+      font-size: 13.5px;
+      font-weight: 600;
       color: #000000;
     }
-    .totals-table .grand-due .totals-value {
+    .totals-inner .row-due td {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #000000;
+    }
+    .totals-inner .row-grand td {
+      font-size: 15px;
+      font-weight: 800;
+      color: #000000;
+    }
+    .totals-inner .row-grand .t-value {
       font-size: 16.5px;
       font-weight: 900;
     }
@@ -209,7 +220,6 @@
       background: #EEF5F0;
       border-left: 3.5px solid #059669;
       padding: 6px 10px;
-      border-radius: 4px;
       margin-bottom: 12px;
       font-weight: 600;
     }
@@ -228,46 +238,41 @@
   </style>
 </head>
 <body>
-  <table class="invoice-container" align="center" width="100mm" cellpadding="0" cellspacing="0" border="0">
+  <table class="invoice-container" align="center" width="98mm" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td class="invoice-body">
 
-        <!-- Header -->
-        <div class="header">
-          <!-- Row 1: Logo & Shop Name -->
-          <table class="header-table" border="0" cellpadding="0" cellspacing="0">
-            <tr>
-              {% if logo_base64 %}
-              <td style="width: 44px; padding-right: 12px; border: none; vertical-align: middle;">
-                <img src="{{ logo_base64 }}" style="max-height: 44px; border-radius: 6px;" alt="Logo" />
-              </td>
-              {% endif %}
-              <td style="border: none; vertical-align: middle;">
-                <div class="shop-name-row1">AM & KHK VEGETABLE</div>
-                <div class="shop-name-row2">MERCHANTS</div>
-              </td>
-            </tr>
-          </table>
-          
-          <!-- Row 2: Address & Phone -->
-          <div class="header-address">
-            NH-17, CHERANALLUR, ERNAKULAM &nbsp;|&nbsp; Ph: 9846089118, 9895110194, 7012794021
-          </div>
+        <!-- ── Header ── -->
+        <table class="header-table" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            {% if logo_base64 %}
+            <td style="width: 50px; padding-right: 10px; border: none; vertical-align: middle;">
+              <img src="{{ logo_base64 }}" style="max-height: 44px;" alt="Logo" />
+            </td>
+            {% endif %}
+            <td style="border: none; vertical-align: middle;">
+              <div class="shop-name">AM &amp; KHK Vegetable Merchants</div>
+            </td>
+          </tr>
+        </table>
 
-          <!-- Row 3: Invoice Info -->
-          <table class="invoice-info" border="0" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="border: none;">INVOICE: {{ sale.invoice_number }}</td>
-              <td class="right" style="border: none;">DATE: {{ formatted_date }}</td>
-            </tr>
-          </table>
+        <div class="header-address">
+          NH-17, CHERANALLUR, ERNAKULAM &nbsp;|&nbsp; Ph: 9846089118, 9895110194, 7012794021
         </div>
 
-        <!-- Customer Block Table -->
-        <table class="customer-block-table" border="0" cellpadding="0" cellspacing="0">
+        <!-- Invoice number + date -->
+        <table class="invoice-info" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="border: none;">INVOICE: {{ sale.invoice_number }}</td>
+            <td class="right" style="border: none;">DATE: {{ formatted_date }}</td>
+          </tr>
+        </table>
+
+        <!-- ── Customer block ── -->
+        <table class="customer-block" border="0" cellpadding="0" cellspacing="0" width="100%">
           <tr>
             <td class="customer-block-td">
-              <div class="customer-label">BILL TO</div>
+              <div class="customer-label">Bill To</div>
               <div class="customer-name">
                 {% if sale.customer %}
                   {{ sale.customer.name }}
@@ -285,79 +290,90 @@
           </tr>
         </table>
 
-        <!-- Items table -->
+        <!-- ── Items table ── -->
         <table class="items-table" border="0" cellpadding="0" cellspacing="0">
           <thead>
             <tr>
-              <th style="width: 22%;">Rate</th>
-              <th style="width: 43%;">Item</th>
-              <th style="width: 15%;" class="right">Qty</th>
-              <th style="width: 20%;" class="right">Amount</th>
+              <th style="text-align: left; width: 22%;">Rate</th>
+              <th style="text-align: left; width: 43%;">Item</th>
+              <th class="right" style="width: 15%;">Qty</th>
+              <th class="right" style="width: 20%;">Amount</th>
             </tr>
           </thead>
           <tbody>
             {% for item in sale.items %}
             <tr>
-              <td style="font-weight: bold; color: #000; border-bottom: 0.75px solid #E2EBE4;">Rs.{{ "%.2f"|format(item.unit_price / 100) }}</td>
-              <td style="border-bottom: 0.75px solid #E2EBE4;">
-                <b style="text-transform: uppercase; font-size: 12px;">{{ item.product.name if item.product else '—' }}</b>
+              <td style="text-align: left; font-size: 12px; font-weight: 600; color: #000000;">
+                Rs.{{ "%.2f"|format(item.unit_price / 100) }}
               </td>
-              <td class="right" style="font-weight: bold; color: #000; border-bottom: 0.75px solid #E2EBE4;">
+              <td style="text-align: left;">
+                <strong style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">{{ item.product.name if item.product else '&mdash;' }}</strong>
+              </td>
+              <td class="right" style="font-size: 12px; font-weight: 600; color: #000000;">
                 {{ item.quantity }}{% if item.product and item.product.unit %} {{ item.product.unit }}{% endif %}
               </td>
-              <td class="right bold" style="color: #000; border-bottom: 0.75px solid #E2EBE4;">Rs.{{ "%.2f"|format(item.subtotal / 100) }}</td>
+              <td class="right" style="font-weight: 800; font-size: 12.5px; color: #000000;">
+                Rs.{{ "%.2f"|format(item.subtotal / 100) }}
+              </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
 
-        <!-- Totals -->
-        <table class="totals-table" border="0" cellpadding="0" cellspacing="0">
-          {% if sale.discount > 0 %}
+        <!-- ── Totals ── right-aligned 58% wide block ── -->
+        <table class="totals-wrap" border="0" cellpadding="0" cellspacing="0" width="100%">
           <tr>
-            <td class="totals-label">Discount</td>
-            <td class="totals-value" style="color: #E5484D;">−Rs.{{ "%.2f"|format(sale.discount / 100) }}</td>
+            <td class="totals-spacer" style="width: 42%; border: none;">&nbsp;</td>
+            <td style="width: 58%; border: none; padding: 0;">
+              <table class="totals-inner" border="0" cellpadding="0" cellspacing="0" width="100%">
+                {% if sale.discount > 0 %}
+                <tr>
+                  <td class="t-label">Discount</td>
+                  <td class="t-value" style="color: #E5484D;">-Rs.{{ "%.2f"|format(sale.discount / 100) }}</td>
+                </tr>
+                {% endif %}
+                {% if sale.tax > 0 %}
+                <tr>
+                  <td class="t-label">Tax</td>
+                  <td class="t-value">Rs.{{ "%.2f"|format(sale.tax / 100) }}</td>
+                </tr>
+                {% endif %}
+                <tr class="row-total">
+                  <td class="t-label">Total</td>
+                  <td class="t-value">Rs.{{ "%.2f"|format(sale.total / 100) }}</td>
+                </tr>
+                {% if sale.customer %}
+                <tr class="row-due-first">
+                  <td class="t-label">Prev. Due</td>
+                  <td class="t-value">Rs.{{ "%.2f"|format(sale.previous_balance / 100) }}</td>
+                </tr>
+                <tr class="row-due">
+                  <td class="t-label">Received</td>
+                  <td class="t-value">Rs.{{ "%.2f"|format(sale.amount_paid / 100) }}</td>
+                </tr>
+                {% set bill_left = sale.total - sale.amount_paid if sale.total > sale.amount_paid else 0 %}
+                <tr class="row-due">
+                  <td class="t-label">Bill Left</td>
+                  <td class="t-value">Rs.{{ "%.2f"|format(bill_left / 100) }}</td>
+                </tr>
+                <tr class="row-grand">
+                  <td class="t-label">Total Due</td>
+                  <td class="t-value">Rs.{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</td>
+                </tr>
+                {% endif %}
+              </table>
+            </td>
           </tr>
-          {% endif %}
-          {% if sale.tax > 0 %}
-          <tr>
-            <td class="totals-label">Tax</td>
-            <td class="totals-value">Rs.{{ "%.2f"|format(sale.tax / 100) }}</td>
-          </tr>
-          {% endif %}
-          <tr class="total-row">
-            <td class="totals-label">Total</td>
-            <td class="totals-value">Rs.{{ "%.2f"|format(sale.total / 100) }}</td>
-          </tr>
-          {% if sale.customer %}
-          <tr class="due-row">
-            <td class="totals-label">Prev. Due</td>
-            <td class="totals-value">Rs.{{ "%.2f"|format(sale.previous_balance / 100) }}</td>
-          </tr>
-          <tr>
-            <td class="totals-label">Received</td>
-            <td class="totals-value">Rs.{{ "%.2f"|format(sale.amount_paid / 100) }}</td>
-          </tr>
-          {% set bill_left = sale.total - sale.amount_paid if sale.total > sale.amount_paid else 0 %}
-          <tr>
-            <td class="totals-label">Bill Left</td>
-            <td class="totals-value">Rs.{{ "%.2f"|format(bill_left / 100) }}</td>
-          </tr>
-          <tr class="grand-due">
-            <td class="totals-label">Total Due</td>
-            <td class="totals-value">Rs.{{ "%.2f"|format(sale.customer.outstanding_balance / 100) }}</td>
-          </tr>
-          {% endif %}
         </table>
 
-        <!-- Notes -->
+        <!-- ── Notes ── -->
         {% if sale.notes %}
         <div class="notes">
           {{ sale.notes | replace('\n', '<br>') | safe }}
         </div>
         {% endif %}
 
-        <!-- Footer -->
+        <!-- ── Footer ── -->
         <div class="footer">
           Thank you for your business!
         </div>
