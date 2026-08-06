@@ -404,8 +404,72 @@ def get_invoice_pdf(sale_id: int):
         )
 
 
+# ── PDF Diagnostics ────────────────────────────────────────────────────────────
 
-# ── Invoice HTML preview ───────────────────────────────────────────────────────
+@billing_bp.route("/pdf-diagnostics", methods=["GET"])
+@login_required
+def pdf_diagnostics():
+    """
+    Returns diagnostic info about the PDF generation setup on this machine.
+    Open in browser: /api/billing/pdf-diagnostics
+    """
+    import os
+    import sys
+    from app.services.invoice_service import _TEMPLATE_DIR
+
+    info = {
+        "python_version": sys.version,
+        "template_dir": _TEMPLATE_DIR,
+        "invoice_html_path": os.path.join(_TEMPLATE_DIR, "invoice.html"),
+        "invoice_html_exists": os.path.isfile(os.path.join(_TEMPLATE_DIR, "invoice.html")),
+        "invoice_pdf_html_exists": os.path.isfile(os.path.join(_TEMPLATE_DIR, "invoice_pdf.html")),
+    }
+
+    # Check Playwright
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            info["playwright_status"] = "✅ WORKING"
+            info["chromium_version"] = browser.version
+            browser.close()
+    except ImportError:
+        info["playwright_status"] = "❌ NOT INSTALLED"
+        info["chromium_version"] = "N/A"
+    except Exception as exc:
+        info["playwright_status"] = f"❌ ERROR: {exc}"
+        info["chromium_version"] = "N/A"
+
+    # Check xhtml2pdf
+    try:
+        from xhtml2pdf import pisa
+        info["xhtml2pdf_status"] = "✅ installed (fallback engine)"
+    except ImportError:
+        info["xhtml2pdf_status"] = "❌ not installed"
+
+    # Determine which engine will be used
+    if "✅ WORKING" in info.get("playwright_status", ""):
+        info["active_pdf_engine"] = "✅ Playwright (NEW DESIGN - correct)"
+    elif info["invoice_pdf_html_exists"]:
+        info["active_pdf_engine"] = "⚠️ xhtml2pdf with OLD template invoice_pdf.html (WRONG)"
+    else:
+        info["active_pdf_engine"] = "⚠️ xhtml2pdf with invoice.html (partial fallback)"
+
+    # Git info
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "log", "--oneline", "-3"],
+            capture_output=True, text=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        )
+        info["git_log"] = result.stdout.strip()
+    except Exception:
+        info["git_log"] = "unavailable"
+
+    return jsonify(info), 200
+
+
 
 @billing_bp.route("/<int:sale_id>/preview", methods=["GET"])
 @login_required
