@@ -388,7 +388,13 @@ def get_invoice_pdf(sale_id: int):
             download_name=f"{sale.invoice_number}.pdf",
         )
     except ImportError:
-        # WeasyPrint / GTK not available — serve HTML as fallback
+        # Playwright / Chromium not available — serve HTML as fallback
+        import logging
+        logging.getLogger(__name__).warning(
+            "⚠️  PDF generation: Playwright/Chromium not installed on this machine. "
+            "Run setup_pdf_engine.bat in the project root to install it. "
+            "Serving HTML fallback instead."
+        )
         return Response(
             html,
             mimetype="text/html",
@@ -396,6 +402,7 @@ def get_invoice_pdf(sale_id: int):
                 "Content-Disposition": f'attachment; filename="{sale.invoice_number}.html"'
             },
         )
+
 
 
 # ── Invoice HTML preview ───────────────────────────────────────────────────────
