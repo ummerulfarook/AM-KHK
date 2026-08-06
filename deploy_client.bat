@@ -67,25 +67,32 @@ if %errorlevel% neq 0 (
 echo.
 echo [STEP 4] Restarting backend service...
 REM Try NSSM service restart
-sc query amkhk >nul 2>&1
+sc query "AMKHK_ERP" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo Restarting Windows Service 'amkhk'...
-    net stop amkhk
-    net start amkhk
+    echo Restarting Windows Service 'AMKHK_ERP'...
+    net stop "AMKHK_ERP"
+    net start "AMKHK_ERP"
 ) ELSE (
-    sc query "am-khk" >nul 2>&1
+    sc query amkhk >nul 2>&1
     if %errorlevel% equ 0 (
-        echo Restarting Windows Service 'am-khk'...
-        net stop "am-khk"
-        net start "am-khk"
+        echo Restarting Windows Service 'amkhk'...
+        net stop amkhk
+        net start amkhk
     ) ELSE (
-        echo.
-        echo ⚠️  Could not find Windows Service automatically.
-        echo     Please restart the backend manually:
-        echo       - Open Services (Win+R → services.msc)
-        echo       - Find the AM-KHK service → Right-click → Restart
-        echo     OR press Ctrl+C in the backend terminal and restart with:
-        echo       %PYTHON% backend\run.py
+        sc query "am-khk" >nul 2>&1
+        if %errorlevel% equ 0 (
+            echo Restarting Windows Service 'am-khk'...
+            net stop "am-khk"
+            net start "am-khk"
+        ) ELSE (
+            echo.
+            echo ⚠️  Could not find Windows Service automatically.
+            echo     Please restart the backend manually:
+            echo       - Open Services (Win+R → services.msc)
+            echo       - Find the AM & KHK service → Right-click → Restart
+            echo     OR press Ctrl+C in the backend terminal and restart with:
+            echo       %PYTHON% backend\run.py
+        )
     )
 )
 
