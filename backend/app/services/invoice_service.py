@@ -57,6 +57,10 @@ def render_invoice_html(sale, settings: dict) -> str:
     )
 
 
+import logging as _logging
+_log = _logging.getLogger(__name__)
+
+
 def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
     """
     Convert the invoice HTML to PDF bytes using Playwright (headless Chromium).
@@ -67,7 +71,7 @@ def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
     Scale is set to 1.2 (20% larger) so the invoice reads comfortably on
     mobile screens and is crisp when shared via WhatsApp.
 
-    Falls back to xhtml2pdf if Playwright is not available.
+    Falls back to xhtml2pdf if Playwright is not available (old design).
     """
     # Re-render from invoice.html (single source of truth)
     if sale is not None and settings is not None:
@@ -81,7 +85,7 @@ def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
             browser = pw.chromium.launch(headless=True)
             page = browser.new_page()
 
-            # Load the HTML directly as a data URI so relative assets resolve
+            # Load the HTML directly so relative assets resolve
             page.set_content(html, wait_until="networkidle")
 
             # Wait for web fonts (Google Fonts) to load
@@ -91,15 +95,12 @@ def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
                 pass
 
             pdf_bytes = page.pdf(
-                # Paper just big enough for a 98 mm invoice strip +
-                # a little breathing room; let Playwright decide page count
                 format="A4",
                 print_background=True,
-                # Reduce margins so the content fills the page nicely
                 margin={
                     "top": "8mm",
                     "bottom": "8mm",
-                    "left": "20mm",   # keeps the dashed side-borders visible
+                    "left": "20mm",
                     "right": "20mm",
                 },
                 # 20% scale-up → easier to read on mobile / WhatsApp
@@ -107,15 +108,25 @@ def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
             )
 
             browser.close()
+            _log.info("✅ PDF generated using Playwright (Chromium) — new design.")
             return pdf_bytes
 
     except ImportError:
-        pass  # Playwright not installed — fall through to xhtml2pdf
+        _log.warning(
+            "⚠️  Playwright package not installed on this machine. "
+            "FALLING BACK TO OLD PDF DESIGN (xhtml2pdf). "
+            "To fix: run setup_pdf_engine.bat then restart the backend."
+        )
+    except Exception as exc:
+        _log.warning(
+            "⚠️  Playwright/Chromium failed (%s). "
+            "FALLING BACK TO OLD PDF DESIGN (xhtml2pdf). "
+            "To fix: run setup_pdf_engine.bat then restart the backend.",
+            exc,
+        )
 
-    # ── Fallback: xhtml2pdf (table-based, no flexbox) ─────────────────────
-    # This path only runs if Playwright is unavailable.  The output will look
-    # slightly different from the laser-print template because xhtml2pdf
-    # cannot render CSS flexbox.  Install Playwright for the best result.
+    # ── Fallback: xhtml2pdf (table-based, no flexbox — OLD design) ────────
+    _log.warning("⚠️  Using xhtml2pdf fallback — PDF will NOT match the laser print design.")
     try:
         # xhtml2pdf Windows NamedTemporaryFile monkeypatch
         try:
@@ -152,6 +163,7 @@ def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
         "No PDF engine is available. "
         "Install Playwright: pip install playwright && python -m playwright install chromium"
     )
+
 
 
 def print_thermal_receipt(sale, printer_config: dict) -> bool:
