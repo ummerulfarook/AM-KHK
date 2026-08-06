@@ -96,15 +96,13 @@ def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
             except Exception:
                 pass
 
+            # Emulate print media explicitly
+            page.emulate_media(media="print")
+
             pdf_bytes = page.pdf(
                 format="A4",
                 print_background=True,
-                margin={
-                    "top": "8mm",
-                    "bottom": "8mm",
-                    "left": "20mm",
-                    "right": "20mm",
-                },
+                prefer_css_page_size=True,
                 # 20% scale-up → easier to read on mobile / WhatsApp
                 scale=1.2,
             )

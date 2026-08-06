@@ -201,13 +201,20 @@
     .footer strong { color: #0E3A2A; font-weight: 700; }
 
     @media print {
+      @page {
+        size: A4;
+        margin: 8mm 20mm;
+      }
       body {
         margin: 0;
         padding: 0;
+        background: #fff;
       }
       .page {
         margin: 0 auto !important;
         width: 98mm !important;
+        border-left: 1.5px dashed #0E3A2A !important;
+        border-right: 1.5px dashed #0E3A2A !important;
       }
     }
   </style>
