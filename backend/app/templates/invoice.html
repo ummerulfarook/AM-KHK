@@ -5,15 +5,18 @@
   <title>Invoice {{ sale.invoice_number }}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+    /* Fallback handled via font-family stack below in case Google Fonts unavailable */
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Poppins', Arial, 'Segoe UI', sans-serif;
       font-size: 14px;
       color: #0F2419;
       background: #fff;
       padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     .page {
@@ -217,7 +220,7 @@
     <!-- Row 1: Logo & Shop Name -->
     <div class="header-row1">
       {% if logo_base64 %}
-        <img src="{{ logo_base64 }}" style="max-height: 44px; border-radius: 6px; filter: contrast(1.4) brightness(0.7);" alt="AM & KHK Logo" />
+        <img src="{{ logo_base64 }}" style="height: 44px; width: auto; max-height: 44px; max-width: 50px; border-radius: 6px; filter: contrast(1.4) brightness(0.7); display: block; flex-shrink: 0;" alt="AM &amp; KHK Logo" />
       {% endif %}
       <div class="shop-name">AM & KHK Vegetable Merchants</div>
     </div>

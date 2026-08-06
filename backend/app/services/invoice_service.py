@@ -83,7 +83,9 @@ def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
 
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
-            page = browser.new_page()
+            # Fixed viewport width = receipt width (98mm ≈ 370px at 96dpi)
+            # This makes rendering identical on every machine
+            page = browser.new_page(viewport={"width": 400, "height": 800})
 
             # Load the HTML directly so relative assets resolve
             page.set_content(html, wait_until="networkidle")
