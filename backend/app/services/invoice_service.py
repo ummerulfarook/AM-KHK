@@ -79,6 +79,11 @@ def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
 
     # ── Primary: Playwright / headless Chromium ────────────────────────────
     try:
+        import os
+        # Force Playwright to use a shared system-wide location
+        # This allows the Windows Service (running as SYSTEM) to access the same browser
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = r"C:\ms-playwright"
+
         from playwright.sync_api import sync_playwright
 
         with sync_playwright() as pw:

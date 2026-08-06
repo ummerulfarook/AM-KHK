@@ -63,6 +63,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+SET PLAYWRIGHT_BROWSERS_PATH=C:\ms-playwright
+
 echo.
 echo [5/5] Downloading Chromium browser (~200 MB - please wait, do not close)...
 echo       This is a one-time download.

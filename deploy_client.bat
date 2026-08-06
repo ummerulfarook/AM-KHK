@@ -22,6 +22,8 @@ IF EXIST "venv\Scripts\pip.exe" (
 )
 echo Venv: %PYTHON%
 
+SET PLAYWRIGHT_BROWSERS_PATH=C:\ms-playwright
+
 echo.
 echo [STEP 1] Pulling latest code from GitHub...
 git fetch origin feature/sales-report-boxes-printer

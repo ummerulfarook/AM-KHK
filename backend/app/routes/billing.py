@@ -427,6 +427,7 @@ def pdf_diagnostics():
 
     # Check Playwright
     try:
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = r"C:\ms-playwright"
         from playwright.sync_api import sync_playwright
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
