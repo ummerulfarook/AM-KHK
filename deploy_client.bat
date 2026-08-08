@@ -67,7 +67,15 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [STEP 4] Restarting backend service...
+echo [STEP 4] Rebuilding React frontend for production...
+node "frontend/node_modules/vite/bin/vite.js" build --cwd frontend
+if %errorlevel% neq 0 (
+    echo ⚠️ Frontend build failed! Trying with npm run build...
+    cd frontend && npm run build && cd ..
+)
+
+echo.
+echo [STEP 5] Restarting backend service...
 REM Try NSSM service restart
 sc query "AMKHK_ERP" >nul 2>&1
 if %errorlevel% equ 0 (

@@ -68,8 +68,9 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
       const fileName = `${sale.invoiceNumber || sale.id}.pdf`
       const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
 
-      // 2. Use Web Share API to share the PDF file directly
-      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      // 2. Use Web Share API only on mobile devices that support file sharing
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      if (isMobile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
           title: `Invoice ${sale.invoiceNumber}`,
           text: `Invoice ${sale.invoiceNumber} — ${fmt(sale.total)}\nThank you for shopping at AM & KHK Vegetable Merchants!`,
