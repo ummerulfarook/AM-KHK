@@ -32,7 +32,7 @@ from decimal import InvalidOperation
 def list_customers():
     """List customers with search, type filter, and pagination."""
     page = max(1, request.args.get("page", 1, type=int))
-    per_page = min(100, request.args.get("perPage", 25, type=int))
+    per_page = min(10000, request.args.get("perPage", 25, type=int))
     search = request.args.get("search", "").strip()
     cust_type = request.args.get("type", "").strip()
     partner = request.args.get("partner", "").strip().lower()

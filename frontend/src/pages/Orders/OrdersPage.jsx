@@ -66,7 +66,7 @@ export default function OrdersPage() {
   const customersQuery = useQuery({
     queryKey: ['customers-wholesale'],
     queryFn: () => import('../../api/authApi').then(m =>
-      m.default.get('/api/customers/').then(r => (r.data.data || []).filter(c => c.type === 'wholesale' && c.isActive))
+      m.default.get('/api/customers/', { params: { perPage: 5000 } }).then(r => (r.data.data || []).filter(c => c.type === 'wholesale' && c.isActive))
     ),
   })
   const wholesaleCustomers = customersQuery.data || []

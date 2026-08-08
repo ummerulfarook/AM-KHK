@@ -49,7 +49,7 @@ export default function ReportsPage() {
   const customersQuery = useQuery({
     queryKey: ['customers-list'],
     queryFn: () => import('../../api/authApi').then(m =>
-      m.default.get('/api/customers/').then(r => r.data.data || [])
+      m.default.get('/api/customers/', { params: { perPage: 5000 } }).then(r => r.data.data || [])
     ),
   })
   const customers = customersQuery.data || []
