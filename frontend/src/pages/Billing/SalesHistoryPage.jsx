@@ -76,7 +76,7 @@ export default function SalesHistoryPage() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     let newTab = null
     
-    // Open tab immediately on desktop to bypass pop-up blockers
+    // Open tab immediately on desktop in case we need the fallback
     if (!isMobile) {
       newTab = window.open('', '_blank')
     }
@@ -88,17 +88,32 @@ export default function SalesHistoryPage() {
       const fileName = `${sale.invoiceNumber || sale.id}.pdf`
       const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
 
-      // 2. Use Web Share API only on mobile devices that support file sharing
-      if (isMobile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        if (newTab) newTab.close()
-        await navigator.share({
-          title: `Invoice ${sale.invoiceNumber || sale.id}`,
-          text: `Invoice ${sale.invoiceNumber || sale.id} — ${fmt(sale.total)}\nThank you for shopping at AM & KHK Vegetable Merchants!`,
-          files: [pdfFile],
-        })
-        showToast('Invoice shared successfully!')
-      } else {
-        // Fallback: download the PDF and open WhatsApp with text
+      let sharedNatively = false
+
+      // 2. Try native sharing first (if browser/OS supports it, e.g. WhatsApp Desktop App)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        try {
+          await navigator.share({
+            title: `Invoice ${sale.invoiceNumber || sale.id}`,
+            text: `Invoice ${sale.invoiceNumber || sale.id} — ${fmt(sale.total)}\nThank you for shopping at AM & KHK Vegetable Merchants!`,
+            files: [pdfFile],
+          })
+          if (newTab) newTab.close()
+          sharedNatively = true
+          showToast('Invoice shared successfully!')
+        } catch (shareErr) {
+          // If user clicked cancel in native dialog, stop here
+          if (shareErr?.name === 'AbortError') {
+            if (newTab) newTab.close()
+            sharedNatively = true
+            showToast('Share cancelled', 'info')
+          }
+          // For other errors (unsupported/failed), it will fall through to the WhatsApp Web fallback below
+        }
+      }
+
+      // 3. Fallback: download the PDF and redirect the tab to WhatsApp
+      if (!sharedNatively) {
         const url = URL.createObjectURL(pdfBlob)
         const a = document.createElement('a')
         a.href = url
