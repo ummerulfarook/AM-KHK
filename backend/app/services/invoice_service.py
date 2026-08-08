@@ -92,8 +92,9 @@ def generate_invoice_pdf(html: str, sale=None, settings=None) -> bytes:
             # This makes rendering identical on every machine
             page = browser.new_page(viewport={"width": 400, "height": 800})
 
-            # Load the HTML directly so relative assets resolve
-            page.set_content(html, wait_until="networkidle")
+            # Load the HTML directly without waiting for external assets to completely settle
+            # (which avoids TimeoutError on slow connections when fetching web fonts)
+            page.set_content(html, wait_until="load")
 
             # Wait for web fonts (Google Fonts) to load
             try:
