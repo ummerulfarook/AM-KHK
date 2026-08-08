@@ -31,6 +31,7 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [partnerFilter, setPartnerFilter] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState(null) // null means creating
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -51,12 +52,13 @@ export default function CustomersPage() {
 
   // ── Query ────────────────────────────────────────────────────────────────
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['customers', page, search, typeFilter],
+    queryKey: ['customers', page, search, typeFilter, partnerFilter],
     queryFn: () => customersApi.listCustomers({
       page,
       perPage: 15,
       search: search || undefined,
       type: typeFilter || undefined,
+      partner: partnerFilter || undefined,
     }),
   })
 
@@ -208,6 +210,20 @@ export default function CustomersPage() {
             <MenuItem value="wholesale">Wholesale</MenuItem>
           </Select>
         </FormControl>
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Partner</InputLabel>
+          <Select
+            id="filter-partner"
+            label="Partner"
+            value={partnerFilter}
+            onChange={(e) => { setPartnerFilter(e.target.value); setPage(1) }}
+          >
+            <MenuItem value="">All Partners</MenuItem>
+            <MenuItem value="am">AM</MenuItem>
+            <MenuItem value="khk">KHK</MenuItem>
+            <MenuItem value="neutral">Neutral</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {/* Data Table */}
@@ -228,6 +244,7 @@ export default function CustomersPage() {
                 <TableRow>
                   <TableCell>Name</TableCell>
                   <TableCell>Type</TableCell>
+                  <TableCell>Partner</TableCell>
                   <TableCell>Phone</TableCell>
                   <TableCell>Credit Limit</TableCell>
                   <TableCell>Dues (Outstanding)</TableCell>
@@ -248,6 +265,26 @@ export default function CustomersPage() {
                           fontSize: '0.7rem',
                           backgroundColor: c.type === 'wholesale' ? alpha(tokens.blue500, 0.12) : alpha(tokens.emerald500, 0.12),
                           color: c.type === 'wholesale' ? tokens.blue500 : tokens.emerald600
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={(c.partner || 'neutral').toUpperCase()}
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: '0.7rem',
+                          backgroundColor: c.partner === 'am' 
+                            ? alpha(tokens.amber500, 0.12) 
+                            : c.partner === 'khk' 
+                              ? alpha(tokens.blue500, 0.12) 
+                              : alpha(tokens.textSecondary, 0.12),
+                          color: c.partner === 'am' 
+                            ? tokens.amber500 
+                            : c.partner === 'khk' 
+                              ? tokens.blue500 
+                              : tokens.textSecondary
                         }}
                       />
                     </TableCell>

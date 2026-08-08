@@ -35,6 +35,7 @@ def list_customers():
     per_page = min(100, request.args.get("perPage", 25, type=int))
     search = request.args.get("search", "").strip()
     cust_type = request.args.get("type", "").strip()
+    partner = request.args.get("partner", "").strip().lower()
 
     stmt = db.select(Customer)
     if search:
@@ -46,6 +47,8 @@ def list_customers():
         )
     if cust_type in ("wholesale", "retail"):
         stmt = stmt.where(Customer.type == cust_type)
+    if partner in ("am", "khk", "neutral"):
+        stmt = stmt.where(Customer.partner == partner)
 
     total = db.session.execute(
         db.select(func.count()).select_from(stmt.subquery())

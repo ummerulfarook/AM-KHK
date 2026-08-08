@@ -34,6 +34,7 @@ export default function ReportsPage() {
   const [dateFrom, setDateFrom] = useState(workingDate)
   const [dateTo, setDateTo] = useState(workingDate)
   const [targetDate, setTargetDate] = useState(defaultDate)
+  const [partnerFilter, setPartnerFilter] = useState('')
   const [exporting, setExporting] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [reportType, setReportType] = useState('daily') // daily, monthly, yearly, expense, credit, purchase, purchase_payment
@@ -54,12 +55,13 @@ export default function ReportsPage() {
   const customers = customersQuery.data || []
 
   const reportsQuery = useQuery({
-    queryKey: ['custom-reports', reportType, targetDate, dateFrom, dateTo],
+    queryKey: ['custom-reports', reportType, targetDate, dateFrom, dateTo, partnerFilter],
     queryFn: () => reportsApi.getCustomReport({
       type: reportType,
       date: targetDate || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
+      partner: partnerFilter || undefined,
     }),
     enabled: activeTab === 0,
   })
@@ -124,7 +126,8 @@ export default function ReportsPage() {
         type: reportType,
         date: targetDate || undefined,
         dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined
+        dateTo: dateTo || undefined,
+        partner: partnerFilter || undefined
       })
     } catch (err) {
       alert('Failed to download PDF report')
@@ -204,6 +207,23 @@ export default function ReportsPage() {
               <MenuItem value="credit">Customer Credit (Outstanding) Report</MenuItem>
               <MenuItem value="purchase">Supplier Purchase Orders Report</MenuItem>
               <MenuItem value="purchase_payment">Supplier Purchase Payments Report</MenuItem>
+            </Select>
+          </FormControl>
+        )}
+
+        {activeTab === 0 && (
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Partner</InputLabel>
+            <Select
+              id="select-partner"
+              label="Partner"
+              value={partnerFilter}
+              onChange={e => setPartnerFilter(e.target.value)}
+            >
+              <MenuItem value="">All Partners</MenuItem>
+              <MenuItem value="am">AM</MenuItem>
+              <MenuItem value="khk">KHK</MenuItem>
+              <MenuItem value="neutral">Neutral</MenuItem>
             </Select>
           </FormControl>
         )}
@@ -292,6 +312,11 @@ export default function ReportsPage() {
         {selectedCustomer && (
           <Typography variant="body2" align="center" sx={{ fontWeight: 600 }}>
             Filtered Customer/Supplier: {selectedCustomer.name}
+          </Typography>
+        )}
+        {partnerFilter && (
+          <Typography variant="body2" align="center" sx={{ fontWeight: 600 }}>
+            Partner: {partnerFilter.toUpperCase()}
           </Typography>
         )}
         <Divider sx={{ my: 2 }} />

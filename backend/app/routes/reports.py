@@ -483,6 +483,7 @@ def get_custom_report():
     """Retrieve filtered transactional tables for daily, monthly, yearly, expenses, credits, and purchase reports."""
     report_type = request.args.get("type", "daily").lower()
     target_date_str = request.args.get("date") # YYYY-MM-DD
+    partner = request.args.get("partner", "").strip().lower()
     
     start_date = None
     end_date = None
@@ -544,28 +545,36 @@ def get_custom_report():
             s_stmt = s_stmt.where(RetailSale.created_at >= start_date)
         if end_date:
             s_stmt = s_stmt.where(RetailSale.created_at <= end_date)
+        if partner in ("am", "khk", "neutral"):
+            s_stmt = s_stmt.where(RetailSale.partner == partner)
         sales = db.session.execute(s_stmt).scalars().all()
         
-        e_stmt = db.select(Expense).where(Expense.status == "approved")
-        if start_date:
-            e_stmt = e_stmt.where(Expense.expense_date >= start_date.date())
-        if end_date:
-            e_stmt = e_stmt.where(Expense.expense_date <= end_date.date())
-        expenses = db.session.execute(e_stmt).scalars().all()
+        expenses = []
+        if not partner or partner == "all":
+            e_stmt = db.select(Expense).where(Expense.status == "approved")
+            if start_date:
+                e_stmt = e_stmt.where(Expense.expense_date >= start_date.date())
+            if end_date:
+                e_stmt = e_stmt.where(Expense.expense_date <= end_date.date())
+            expenses = db.session.execute(e_stmt).scalars().all()
         
-        p_stmt = db.select(PurchaseOrder).where(PurchaseOrder.status != "cancelled")
-        if start_date:
-            p_stmt = p_stmt.where(PurchaseOrder.created_at >= start_date)
-        if end_date:
-            p_stmt = p_stmt.where(PurchaseOrder.created_at <= end_date)
-        purchases = db.session.execute(p_stmt).scalars().all()
+        purchases = []
+        if not partner or partner == "all":
+            p_stmt = db.select(PurchaseOrder).where(PurchaseOrder.status != "cancelled")
+            if start_date:
+                p_stmt = p_stmt.where(PurchaseOrder.created_at >= start_date)
+            if end_date:
+                p_stmt = p_stmt.where(PurchaseOrder.created_at <= end_date)
+            purchases = db.session.execute(p_stmt).scalars().all()
 
-        # Fetch dues payments recorded in this period
-        pay_stmt = db.select(Payment)
+        # Fetch dues payments recorded in this period and filter by customer partner
+        pay_stmt = db.select(Payment).join(CreditLedger).join(Customer)
         if start_date:
             pay_stmt = pay_stmt.where(Payment.recorded_at >= start_date)
         if end_date:
             pay_stmt = pay_stmt.where(Payment.recorded_at <= end_date)
+        if partner in ("am", "khk", "neutral"):
+            pay_stmt = pay_stmt.where(Customer.partner == partner)
         payments = db.session.execute(pay_stmt).scalars().all()
 
         rows = []
@@ -681,6 +690,8 @@ def get_custom_report():
         search = request.args.get("search", "").strip()
         if search:
             stmt = stmt.where(Customer.name.ilike(f"%{search}%"))
+        if partner in ("am", "khk", "neutral"):
+            stmt = stmt.where(Customer.partner == partner)
         customers = db.session.execute(stmt).scalars().all()
         
         rows = [{
@@ -908,6 +919,7 @@ def download_pdf_report():
     """Generate and stream a PDF version of the custom report."""
     report_type = request.args.get("type", "daily").lower()
     target_date_str = request.args.get("date") # YYYY-MM-DD
+    partner = request.args.get("partner", "").strip().lower()
     
     start_date = None
     end_date = None
@@ -977,7 +989,8 @@ def download_pdf_report():
         return '₹' + f"{paise / 100:,.2f}"
 
     if report_type in ("daily", "monthly", "yearly"):
-        title = f"{report_type.capitalize()} Transaction Report"
+        p_title = f" ({partner.upper()})" if partner in ("am", "khk") else ""
+        title = f"{report_type.capitalize()} Transaction Report{p_title}"
         headers = [
             {"title": "Date", "key": "date_str", "width": "18%"},
             {"title": "Reference", "key": "reference", "width": "15%"},
@@ -987,31 +1000,41 @@ def download_pdf_report():
             {"title": "Expense", "key": "expense_str", "width": "10%", "align": "right"},
         ]
 
-        sales = db.session.execute(
-            db.select(RetailSale)
-            .where(RetailSale.created_at >= start_date if start_date else True)
-            .where(RetailSale.created_at <= end_date if end_date else True)
-        ).scalars().all()
+        s_stmt = db.select(RetailSale)
+        if start_date:
+            s_stmt = s_stmt.where(RetailSale.created_at >= start_date)
+        if end_date:
+            s_stmt = s_stmt.where(RetailSale.created_at <= end_date)
+        if partner in ("am", "khk", "neutral"):
+            s_stmt = s_stmt.where(RetailSale.partner == partner)
+        sales = db.session.execute(s_stmt).scalars().all()
 
-        expenses = db.session.execute(
-            db.select(Expense)
-            .where(Expense.status == "approved")
-            .where(Expense.expense_date >= start_date.date() if start_date else True)
-            .where(Expense.expense_date <= end_date.date() if end_date else True)
-        ).scalars().all()
+        expenses = []
+        if not partner or partner == "all":
+            e_stmt = db.select(Expense).where(Expense.status == "approved")
+            if start_date:
+                e_stmt = e_stmt.where(Expense.expense_date >= start_date.date())
+            if end_date:
+                e_stmt = e_stmt.where(Expense.expense_date <= end_date.date())
+            expenses = db.session.execute(e_stmt).scalars().all()
 
-        purchases = db.session.execute(
-            db.select(PurchaseOrder)
-            .where(PurchaseOrder.status != "cancelled")
-            .where(PurchaseOrder.created_at >= start_date if start_date else True)
-            .where(PurchaseOrder.created_at <= end_date if end_date else True)
-        ).scalars().all()
+        purchases = []
+        if not partner or partner == "all":
+            p_stmt = db.select(PurchaseOrder).where(PurchaseOrder.status != "cancelled")
+            if start_date:
+                p_stmt = p_stmt.where(PurchaseOrder.created_at >= start_date)
+            if end_date:
+                p_stmt = p_stmt.where(PurchaseOrder.created_at <= end_date)
+            purchases = db.session.execute(p_stmt).scalars().all()
 
-        payments = db.session.execute(
-            db.select(Payment)
-            .where(Payment.recorded_at >= start_date if start_date else True)
-            .where(Payment.recorded_at <= end_date if end_date else True)
-        ).scalars().all()
+        pay_stmt = db.select(Payment).join(CreditLedger).join(Customer)
+        if start_date:
+            pay_stmt = pay_stmt.where(Payment.recorded_at >= start_date)
+        if end_date:
+            pay_stmt = pay_stmt.where(Payment.recorded_at <= end_date)
+        if partner in ("am", "khk", "neutral"):
+            pay_stmt = pay_stmt.where(Customer.partner == partner)
+        payments = db.session.execute(pay_stmt).scalars().all()
 
         for s in sales:
             rows.append({
@@ -1133,7 +1156,8 @@ def download_pdf_report():
         }
 
     elif report_type == "credit":
-        title = "Customer Outstanding Dues Report"
+        p_title = f" ({partner.upper()})" if partner in ("am", "khk") else ""
+        title = f"Customer Outstanding Dues Report{p_title}"
         headers = [
             {"title": "Customer Name", "key": "name", "width": "35%"},
             {"title": "Phone", "key": "phone", "width": "20%"},
@@ -1146,6 +1170,8 @@ def download_pdf_report():
         search = request.args.get("search", "").strip()
         if search:
             stmt = stmt.where(Customer.name.ilike(f"%{search}%"))
+        if partner in ("am", "khk", "neutral"):
+            stmt = stmt.where(Customer.partner == partner)
         customers = db.session.execute(stmt).scalars().all()
         
         for c in customers:

@@ -222,6 +222,24 @@ export default function CustomerDetailsPage() {
                 }}
               />
               <Chip
+                label={(customer.partner || 'neutral').toUpperCase()}
+                size="small"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '0.65rem',
+                  backgroundColor: customer.partner === 'am' 
+                    ? alpha(tokens.amber500, 0.12) 
+                    : customer.partner === 'khk' 
+                      ? alpha(tokens.blue500, 0.12) 
+                      : alpha(tokens.textSecondary, 0.12),
+                  color: customer.partner === 'am' 
+                    ? tokens.amber500 
+                    : customer.partner === 'khk' 
+                      ? tokens.blue500 
+                      : tokens.textSecondary
+                }}
+              />
+              <Chip
                 label={customer.isActive ? 'Active' : 'Inactive'}
                 size="small"
                 color={customer.isActive ? 'success' : 'default'}
