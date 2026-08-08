@@ -60,11 +60,13 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
   }
 
   const handleWhatsAppSend = async () => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    let newTab = null
+    // Check if native sharing is supported on this browser/device using a dummy file
+    const dummyFile = new File([''], 'test.pdf', { type: 'application/pdf' })
+    const canShareNatively = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [dummyFile] }))
     
-    // Open tab immediately on desktop in case we need the fallback
-    if (!isMobile) {
+    let newTab = null
+    // Only open a blank tab if we are going to use the browser fallback
+    if (!canShareNatively) {
       newTab = window.open('', '_blank')
     }
 
@@ -76,32 +78,16 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
       const fileName = `${sale.invoiceNumber || sale.id}.pdf`
       const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
 
-      let sharedNatively = false
-
-      // 2. Try native sharing first (if browser/OS supports it, e.g. WhatsApp Desktop App)
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        try {
-          await navigator.share({
-            title: `Invoice ${sale.invoiceNumber}`,
-            text: `Invoice ${sale.invoiceNumber} — ${fmt(sale.total)}\nThank you for shopping at AM & KHK Vegetable Merchants!`,
-            files: [pdfFile],
-          })
-          if (newTab) newTab.close()
-          sharedNatively = true
-          showToast('Invoice shared successfully!')
-        } catch (shareErr) {
-          // If user clicked cancel in native dialog, stop here
-          if (shareErr?.name === 'AbortError') {
-            if (newTab) newTab.close()
-            sharedNatively = true
-            showToast('Share cancelled', 'info')
-          }
-          // For other errors (unsupported/failed), it will fall through to the WhatsApp Web fallback below
-        }
-      }
-
-      // 3. Fallback: download the PDF and redirect the tab to WhatsApp
-      if (!sharedNatively) {
+      if (canShareNatively) {
+        // 2. Share natively using Windows/Mobile native share sheet (e.g. WhatsApp Desktop App)
+        await navigator.share({
+          title: `Invoice ${sale.invoiceNumber}`,
+          text: `Invoice ${sale.invoiceNumber} — ${fmt(sale.total)}\nThank you for shopping at AM & KHK Vegetable Merchants!`,
+          files: [pdfFile],
+        })
+        showToast('Invoice shared successfully!')
+      } else {
+        // 3. Fallback: download the PDF and redirect the blank tab to WhatsApp Web
         const url = URL.createObjectURL(pdfBlob)
         const a = document.createElement('a')
         a.href = url
@@ -117,6 +103,7 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
           `Thank you for shopping at AM & KHK Vegetable Merchants!`
         )
         const phone = sale.customerPhone ? sale.customerPhone.replace(/\D/g, '') : ''
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
         const waUrl = isMobile
           ? (phone ? `https://wa.me/91${phone}?text=${text}` : `https://wa.me/?text=${text}`)
           : (phone ? `https://web.whatsapp.com/send?phone=91${phone}&text=${text}` : `https://web.whatsapp.com/send?text=${text}`)
