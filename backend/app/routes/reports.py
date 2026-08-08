@@ -1163,7 +1163,7 @@ def download_pdf_report():
             {"title": "Phone", "key": "phone", "width": "20%"},
             {"title": "Type", "key": "type_str", "width": "15%"},
             {"title": "Partner Block", "key": "partner", "width": "15%"},
-            {"title": "Outstanding Dues", "key": "balance_str", "width": "15%", "align": "right"},
+            {"title": "Outstanding Dues", "key": "balance_str", "width": "15%", "align": "right", "bold": True},
         ]
 
         stmt = db.select(Customer).where(Customer.outstanding_balance > 0)

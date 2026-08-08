@@ -515,7 +515,19 @@ export default function ReportsPage() {
                               <TableCell>
                                 <Chip label={row.partner?.toUpperCase() || 'NEUTRAL'} size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }} />
                               </TableCell>
-                              <TableCell align="right" sx={{ color: tokens.amber500, fontWeight: 700 }}>{fmtRupees(row.outstandingBalance)}</TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{
+                                  color: tokens.amber500,
+                                  fontWeight: 800,
+                                  '@media print': {
+                                    color: '#000000 !important',
+                                    fontWeight: 900
+                                  }
+                                }}
+                              >
+                                {fmtRupees(row.outstandingBalance)}
+                              </TableCell>
                             </>
                           )}
 
