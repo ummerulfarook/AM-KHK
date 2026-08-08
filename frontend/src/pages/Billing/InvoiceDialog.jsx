@@ -102,9 +102,9 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
           `Thank you for shopping at AM & KHK Vegetable Merchants!`
         )
         const phone = sale.customerPhone ? sale.customerPhone.replace(/\D/g, '') : ''
-        const waUrl = phone
-          ? `https://wa.me/91${phone}?text=${text}`
-          : `https://wa.me/?text=${text}`
+        const waUrl = isMobile
+          ? (phone ? `https://wa.me/91${phone}?text=${text}` : `https://wa.me/?text=${text}`)
+          : (phone ? `https://web.whatsapp.com/send?phone=91${phone}&text=${text}` : `https://web.whatsapp.com/send?text=${text}`)
         
         if (newTab) {
           newTab.location.href = waUrl
