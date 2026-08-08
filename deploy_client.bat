@@ -46,12 +46,12 @@ if %errorlevel% neq 0 (
         echo Installing from offline package...
         %PIP% install playwright_offline\playwright-1.62.0-py3-none-win_amd64.whl --no-deps --no-cache-dir
     ) ELSE (
-        echo Trying online install (may be slow)...
+        echo Trying online install - may be slow...
         %PIP% cache purge
         %PIP% install --no-cache-dir --timeout 300 --retries 10 playwright
     )
 
-    echo Downloading Chromium browser (200MB, one-time)...
+    echo Downloading Chromium browser - 200MB one-time...
     %PYTHON% -m playwright install chromium
 )
 
@@ -101,8 +101,8 @@ if %errorlevel% equ 0 (
             echo.
             echo ⚠️  Could not find Windows Service automatically.
             echo     Please restart the backend manually:
-            echo       - Open Services (Win+R → services.msc)
-            echo       - Find the AM & KHK service → Right-click → Restart
+            echo       - Open Services [Win+R - services.msc]
+            echo       - Find the AM & KHK service - Right-click - Restart
             echo     OR press Ctrl+C in the backend terminal and restart with:
             echo       %PYTHON% backend\run.py
         )
