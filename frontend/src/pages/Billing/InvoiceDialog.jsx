@@ -60,6 +60,14 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
   }
 
   const handleWhatsAppSend = async () => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    let newTab = null
+    
+    // Open tab immediately on desktop to bypass pop-up blockers
+    if (!isMobile) {
+      newTab = window.open('', '_blank')
+    }
+
     setDownloading(true)
     try {
       // 1. Generate the PDF Blob from the backend
@@ -69,8 +77,8 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
       const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
 
       // 2. Use Web Share API only on mobile devices that support file sharing
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
       if (isMobile && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        if (newTab) newTab.close()
         await navigator.share({
           title: `Invoice ${sale.invoiceNumber}`,
           text: `Invoice ${sale.invoiceNumber} — ${fmt(sale.total)}\nThank you for shopping at AM & KHK Vegetable Merchants!`,
@@ -97,10 +105,16 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
         const waUrl = phone
           ? `https://wa.me/91${phone}?text=${text}`
           : `https://wa.me/?text=${text}`
-        window.open(waUrl, '_blank')
+        
+        if (newTab) {
+          newTab.location.href = waUrl
+        } else {
+          window.open(waUrl, '_blank')
+        }
         showToast('PDF downloaded. Share it via WhatsApp.', 'info')
       }
     } catch (err) {
+      if (newTab) newTab.close()
       // User may have cancelled the share dialog — that's fine
       if (err?.name === 'AbortError') {
         showToast('Share cancelled', 'info')
