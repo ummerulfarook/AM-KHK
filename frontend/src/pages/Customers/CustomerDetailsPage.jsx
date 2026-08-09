@@ -6,7 +6,7 @@ import {
   IconButton, LinearProgress, Tab, Tabs, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography, alpha, Chip, Button, Stack,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl,
-  InputLabel, Select, MenuItem, Paper
+  InputLabel, Select, MenuItem, Paper, Snackbar
 } from '@mui/material'
 import { useAuth } from '../../contexts/AuthContext'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
@@ -19,6 +19,7 @@ import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import { customersApi } from '../../api/customersApi'
 import { settingsApi } from '../../api/settingsApi'
+import { inventoryApi } from '../../api/inventoryApi'
 import { tokens } from '../../theme/theme'
 import StatusBadge from '../../components/common/StatusBadge'
 import StatCard from '../../components/common/StatCard'
@@ -45,6 +46,47 @@ export default function CustomerDetailsPage() {
   const [payInvoiceRef, setPayInvoiceRef] = useState('')
   const [payNotes, setPayNotes] = useState('')
   const [payError, setPayError] = useState('')
+
+  // Toast / Feedback State
+  const [toast, setToast] = useState({ open: false, msg: '', severity: 'success' })
+  const showToast = (msg, severity = 'success') => setToast({ open: true, msg, severity })
+
+  // Sub-store states & mutations
+  const [newStoreName, setNewStoreName] = useState('')
+  const [editingStoreId, setEditingStoreId] = useState(null)
+  const [editingStoreName, setEditingStoreName] = useState('')
+  const [selectedStoreId, setSelectedStoreId] = useState('')
+
+  const createStoreMutation = useMutation({
+    mutationFn: (data) => customersApi.createCustomerStore(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries(['customer', id])
+      setNewStoreName('')
+      showToast('Sub-store added successfully')
+    },
+    onError: (err) => {
+      showToast(err?.response?.data?.error || 'Failed to add sub-store', 'error')
+    }
+  })
+
+  const updateStoreMutation = useMutation({
+    mutationFn: ({ storeId, data }) => customersApi.updateCustomerStore(storeId, data),
+    onSuccess: () => {
+      qc.invalidateQueries(['customer', id])
+      setEditingStoreId(null)
+      showToast('Sub-store updated successfully')
+    },
+    onError: (err) => {
+      showToast(err?.response?.data?.error || 'Failed to update sub-store', 'error')
+    }
+  })
+
+  // All products for sales report dropdown
+  const productsQuery = useQuery({
+    queryKey: ['all-products-list'],
+    queryFn: () => inventoryApi.getProducts({ perPage: 5000 }),
+  })
+  const products = productsQuery.data?.data || []
 
   const canModify = user && ['owner', 'manager', 'accountant'].includes(user.role)
 
@@ -76,12 +118,13 @@ export default function CustomerDetailsPage() {
   })
 
   const historyQuery = useQuery({
-    queryKey: ['customer-history', id, historyPage, dateFrom, dateTo],
+    queryKey: ['customer-history', id, historyPage, dateFrom, dateTo, selectedStoreId],
     queryFn: () => customersApi.getCustomerHistory(id, {
       page: historyPage,
       perPage: (dateFrom || dateTo) ? 1000 : 10,
       dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined
+      dateTo: dateTo || undefined,
+      storeId: selectedStoreId || undefined
     }),
   })
 
@@ -371,45 +414,167 @@ export default function CustomerDetailsPage() {
       <Grid container spacing={3} className="desktop-only">
         {/* Left column: Quick Info */}
         <Grid item xs={12} md={4} className="contact-info-card">
-          <Card sx={{ borderRadius: '20px', border: `1px solid ${tokens.border}`, height: '100%' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Contact & Info</Typography>
-              <Stack spacing={2}>
-                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                  <PhoneRoundedIcon sx={{ color: tokens.textSecondary, fontSize: 20 }} />
-                  <Box>
-                    <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Phone</Typography>
-                    <Typography sx={{ fontWeight: 600 }}>{customer.phone || 'Not provided'}</Typography>
+          <Stack spacing={3}>
+            <Card sx={{ borderRadius: '20px', border: `1px solid ${tokens.border}` }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Contact & Info</Typography>
+                <Stack spacing={2}>
+                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                    <PhoneRoundedIcon sx={{ color: tokens.textSecondary, fontSize: 20 }} />
+                    <Box>
+                      <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Phone</Typography>
+                      <Typography sx={{ fontWeight: 600 }}>{customer.phone || 'Not provided'}</Typography>
+                    </Box>
                   </Box>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                  <HomeRoundedIcon sx={{ color: tokens.textSecondary, fontSize: 20 }} />
-                  <Box>
-                    <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Address</Typography>
-                    <Typography sx={{ fontWeight: 600 }}>{customer.address || 'Not provided'}</Typography>
+                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                    <HomeRoundedIcon sx={{ color: tokens.textSecondary, fontSize: 20 }} />
+                    <Box>
+                      <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Address</Typography>
+                      <Typography sx={{ fontWeight: 600 }}>{customer.address || 'Not provided'}</Typography>
+                    </Box>
                   </Box>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                  <Typography sx={{ fontSize: 20, color: tokens.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20 }}>🪙</Typography>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Opening Balance (OB)</Typography>
-                    <Typography sx={{ fontWeight: 600 }}>{fmtRupees(customer.openingBalance || 0)}</Typography>
+                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                    <Typography sx={{ fontSize: 20, color: tokens.textSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 20 }}>🪙</Typography>
+                    <Box>
+                      <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Opening Balance (OB)</Typography>
+                      <Typography sx={{ fontWeight: 600 }}>{fmtRupees(customer.openingBalance || 0)}</Typography>
+                    </Box>
                   </Box>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                  <CalendarMonthRoundedIcon sx={{ color: tokens.textSecondary, fontSize: 20 }} />
-                  <Box>
-                    <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Customer Since</Typography>
-                    <Typography sx={{ fontWeight: 600 }}>
-                      {new Date(customer.createdAt).toLocaleDateString('en-IN', {
-                        day: 'numeric', month: 'long', year: 'numeric'
-                      })}
+                  <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                    <CalendarMonthRoundedIcon sx={{ color: tokens.textSecondary, fontSize: 20 }} />
+                    <Box>
+                      <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Customer Since</Typography>
+                      <Typography sx={{ fontWeight: 600 }}>
+                        {new Date(customer.createdAt).toLocaleDateString('en-IN', {
+                          day: 'numeric', month: 'long', year: 'numeric'
+                        })}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+
+            {/* Sub-Stores Manager Card */}
+            <Card sx={{ borderRadius: '20px', border: `1px solid ${tokens.border}` }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>Sub-Stores / Branches</Typography>
+                <Typography variant="body2" sx={{ color: tokens.textSecondary, mb: 2 }}>
+                  Manage multiple store locations under this customer's account.
+                </Typography>
+
+                <Stack spacing={1.5} sx={{ mb: 2 }}>
+                  {(customer.stores || []).map((store) => (
+                    <Box
+                      key={store.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1.5,
+                        borderRadius: '12px',
+                        backgroundColor: tokens.background,
+                        border: `1px solid ${tokens.border}`
+                      }}
+                    >
+                      {editingStoreId === store.id ? (
+                        <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+                          <TextField
+                            size="small"
+                            value={editingStoreName}
+                            onChange={(e) => setEditingStoreName(e.target.value)}
+                            fullWidth
+                            autoFocus
+                          />
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            onClick={() => updateStoreMutation.mutate({ storeId: store.id, data: { name: editingStoreName } })}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => setEditingStoreId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </Box>
+                      ) : (
+                        <>
+                          <Box>
+                            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>{store.name}</Typography>
+                            <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>
+                              Status: {store.isActive ? 'Active' : 'Inactive'}
+                            </Typography>
+                          </Box>
+                          {canModify && (
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              <Button
+                                size="small"
+                                variant="text"
+                                sx={{ minWidth: 0, textTransform: 'none', py: 0.25 }}
+                                onClick={() => {
+                                  setEditingStoreId(store.id)
+                                  setEditingStoreName(store.name)
+                                }}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="text"
+                                color={store.isActive ? 'error' : 'success'}
+                                sx={{ minWidth: 0, textTransform: 'none', py: 0.25 }}
+                                onClick={() => updateStoreMutation.mutate({ storeId: store.id, data: { isActive: !store.isActive } })}
+                              >
+                                {store.isActive ? 'Deactivate' : 'Activate'}
+                              </Button>
+                            </Box>
+                          )}
+                        </>
+                      )}
+                    </Box>
+                  ))}
+                  {(!customer.stores || customer.stores.length === 0) && (
+                    <Typography sx={{ fontSize: '0.875rem', color: tokens.textSecondary, fontStyle: 'italic', py: 1, textAlign: 'center' }}>
+                      No sub-stores configured.
                     </Typography>
+                  )}
+                </Stack>
+
+                {canModify && (
+                  <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                    <TextField
+                      placeholder="Add Store Name..."
+                      size="small"
+                      value={newStoreName}
+                      onChange={(e) => setNewStoreName(e.target.value)}
+                      fullWidth
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={() => {
+                        if (!newStoreName.trim()) return
+                        createStoreMutation.mutate({ name: newStoreName })
+                      }}
+                      disabled={createStoreMutation.isPending}
+                      sx={{
+                        borderRadius: '10px',
+                        textTransform: 'none',
+                        backgroundColor: tokens.emerald500,
+                        '&:hover': { backgroundColor: tokens.emerald600 }
+                      }}
+                    >
+                      Add
+                    </Button>
                   </Box>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          </Stack>
         </Grid>
 
         {/* Right column: Purchase History & Credit Ledger Tabs */}
@@ -420,12 +585,41 @@ export default function CustomerDetailsPage() {
                 <Tab label="Purchase History" />
                 <Tab label="Outstanding Dues" />
                 <Tab label="Payment History" />
+                <Tab label="Sales Report" />
               </Tabs>
             </Box>
 
             {/* Tab 1: Purchase History */}
             {tabValue === 0 && (
               <Box sx={{ p: 2 }}>
+                {/* Store Filter */}
+                {customer && customer.stores && customer.stores.length > 0 && (
+                  <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-start' }}>
+                    <FormControl size="small" sx={{ minWidth: 220 }}>
+                      <InputLabel id="history-store-filter-label">Filter by Store</InputLabel>
+                      <Select
+                        labelId="history-store-filter-label"
+                        id="history-store-filter"
+                        value={selectedStoreId}
+                        label="Filter by Store"
+                        onChange={(e) => {
+                          setSelectedStoreId(e.target.value)
+                          setHistoryPage(1)
+                        }}
+                      >
+                        <MenuItem value="">
+                          <em>All Stores / Direct Invoices</em>
+                        </MenuItem>
+                        {customer.stores.map((s) => (
+                          <MenuItem key={s.id} value={s.id}>
+                            {s.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                )}
+
                 {historyQuery.isLoading ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
                 ) : !history.length ? (
@@ -439,6 +633,7 @@ export default function CustomerDetailsPage() {
                         <TableRow>
                           <TableCell>Date</TableCell>
                           <TableCell>Invoice #</TableCell>
+                          <TableCell>Store</TableCell>
                           <TableCell>Type</TableCell>
                           <TableCell align="right">Total Amt</TableCell>
                           <TableCell align="right">Paid Amt</TableCell>
@@ -448,12 +643,15 @@ export default function CustomerDetailsPage() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {history.map((h, i) => (
-                          <TableRow key={i} hover>
+                        {history.map((h) => (
+                          <TableRow key={h.id} hover>
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {new Date(h.createdAt).toLocaleDateString('en-IN')}
                             </TableCell>
                             <TableCell sx={{ fontWeight: 600 }}>{h.invoiceNumber}</TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem', color: tokens.textSecondary }}>
+                              {h.storeName || 'Direct / Main'}
+                            </TableCell>
                             <TableCell>
                               <Chip
                                 label={h.type.toUpperCase()}
@@ -886,6 +1084,256 @@ export default function CustomerDetailsPage() {
           </DialogActions>
         </form>
       </Dialog>
+      {/* Tab 4: Sales Report */}
+      {tabValue === 3 && (
+        <CustomerSalesReportView
+          customerId={id}
+          customerName={customer.name}
+          stores={customer.stores || []}
+          products={products}
+          tokens={tokens}
+        />
+      )}
+
+      {/* Toast Notification */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={() => setToast(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity={toast.severity} sx={{ width: '100%', borderRadius: '10px' }}>
+          {toast.msg}
+        </Alert>
+      </Snackbar>
+    </Box>
+  )
+}
+
+
+// ── Customer Sales Report Sub-View Component ─────────────────────────────────
+
+function CustomerSalesReportView({ customerId, customerName, stores, products, tokens }) {
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [productId, setProductId] = useState('')
+  const [storeId, setStoreId] = useState('')
+
+  const reportQuery = useQuery({
+    queryKey: ['customer-sales-report', customerId, dateFrom, dateTo, productId, storeId],
+    queryFn: () => customersApi.getCustomerSalesReport(customerId, {
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      productId: productId || undefined,
+      storeId: storeId || undefined
+    })
+  })
+
+  const reportData = reportQuery.data?.data || []
+  const summary = reportQuery.data?.summary || { totalInvoices: 0, totalQuantity: 0, totalAmount: 0 }
+  const storeSubtotals = reportQuery.data?.storeSubtotals || {}
+
+  const handleDownloadPdf = async () => {
+    try {
+      await customersApi.downloadCustomerSalesReportPdf(customerId, {
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        productId: productId || undefined,
+        storeId: storeId || undefined
+      }, customerName)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleExportExcel = async () => {
+    try {
+      await customersApi.exportCustomerSalesReportExcel(customerId, {
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        productId: productId || undefined,
+        storeId: storeId || undefined
+      }, customerName)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  return (
+    <Box sx={{ p: 3 }}>
+      {/* Filters Bar */}
+      <Grid container spacing={2} sx={{ mb: 3 }} className="no-print">
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="From Date"
+            type="date"
+            fullWidth
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="To Date"
+            type="date"
+            fullWidth
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <FormControl size="small" fullWidth>
+            <InputLabel id="rep-prod-filter-label">Product</InputLabel>
+            <Select
+              labelId="rep-prod-filter-label"
+              value={productId}
+              label="Product"
+              onChange={(e) => setProductId(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>All Products</em>
+              </MenuItem>
+              {products.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <FormControl size="small" fullWidth>
+            <InputLabel id="rep-store-filter-label">Store</InputLabel>
+            <Select
+              labelId="rep-store-filter-label"
+              value={storeId}
+              label="Store"
+              onChange={(e) => setStoreId(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>All Stores / Direct Invoices</em>
+              </MenuItem>
+              {stores.map((s) => (
+                <MenuItem key={s.id} value={s.id}>
+                  {s.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+      </Grid>
+
+      {/* Export Buttons */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mb: 3 }} className="no-print">
+        <Button
+          variant="outlined"
+          startIcon={<PictureAsPdfRoundedIcon />}
+          onClick={handleDownloadPdf}
+          sx={{ borderRadius: '10px', textTransform: 'none' }}
+        >
+          Download PDF
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<DownloadRoundedIcon />}
+          onClick={handleExportExcel}
+          sx={{ borderRadius: '10px', textTransform: 'none' }}
+        >
+          Export Excel
+        </Button>
+      </Box>
+
+      {/* Summary Cards */}
+      <Grid container spacing={2.5} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={4}>
+          <Box sx={{ p: 2, backgroundColor: tokens.surfaceAlt, borderRadius: '12px', border: `1px solid ${tokens.border}`, textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ color: tokens.textSecondary, fontWeight: 600 }}>Total Invoices</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>{summary.totalInvoices}</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Box sx={{ p: 2, backgroundColor: tokens.surfaceAlt, borderRadius: '12px', border: `1px solid ${tokens.border}`, textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ color: tokens.textSecondary, fontWeight: 600 }}>Total Quantity Sold</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>{summary.totalQuantity.toFixed(2)}</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Box sx={{ p: 2, backgroundColor: tokens.surfaceAlt, borderRadius: '12px', border: `1px solid ${tokens.border}`, textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ color: tokens.textSecondary, fontWeight: 600 }}>Total Sales Amount</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: tokens.emerald600 }}>{fmtRupees(summary.totalAmount)}</Typography>
+          </Box>
+        </Grid>
+      </Grid>
+
+      {/* Main Details Table */}
+      {reportQuery.isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+      ) : !reportData.length ? (
+        <Typography sx={{ textAlign: 'center', py: 4, color: tokens.textSecondary }}>
+          No report data found for selected filters.
+        </Typography>
+      ) : (
+        <TableContainer component={Paper} elevation={0} sx={{ border: `1px solid ${tokens.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+          <Table size="small">
+            <TableHead sx={{ backgroundColor: tokens.surfaceAlt }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700 }}>Invoice #</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Store</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Product Name</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>Quantity</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Unit</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>Unit Price</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>Total Amount</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {reportData.map((row, i) => (
+                <TableRow key={i} hover>
+                  <TableCell sx={{ fontWeight: 600 }}>{row.invoiceNumber}</TableCell>
+                  <TableCell>{new Date(row.date).toLocaleDateString('en-IN')}</TableCell>
+                  <TableCell>{row.storeName}</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{row.productName}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>{row.quantity}</TableCell>
+                  <TableCell>{row.unit}</TableCell>
+                  <TableCell align="right">{fmtRupees(row.unitPrice)}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: tokens.emerald600 }}>{fmtRupees(row.totalAmount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      {/* Store-wise Subtotals section */}
+      {Object.keys(storeSubtotals).length > 0 && (
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
+          <TableContainer component={Paper} elevation={0} sx={{ maxWidth: 400, border: `1px solid ${tokens.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+            <Table size="small">
+              <TableHead sx={{ backgroundColor: tokens.surfaceAlt }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Store Name</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>Qty</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>Amount</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {Object.entries(storeSubtotals).map(([storeName, sub]) => (
+                  <TableRow key={storeName}>
+                    <TableCell sx={{ fontWeight: 600 }}>{storeName}</TableCell>
+                    <TableCell align="right">{sub.quantity.toFixed(2)}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: tokens.emerald600 }}>{fmtRupees(sub.amount)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
     </Box>
   )
 }

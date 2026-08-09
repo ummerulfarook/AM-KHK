@@ -1283,3 +1283,228 @@ def download_pdf_report():
         return jsonify({"error": f"Failed to generate PDF report: {e}"}), 500
 
 
+# ── General Product Sales Report Endpoints ─────────────────────────────────────
+
+def _get_product_sales_report_data(date_from, date_to, product_id, store_id):
+    # 1. Retail Sales Items
+    stmt_rs = db.select(SaleItem).join(RetailSale)
+    if date_from:
+        stmt_rs = stmt_rs.where(RetailSale.created_at >= f"{date_from} 00:00:00")
+    if date_to:
+        stmt_rs = stmt_rs.where(RetailSale.created_at <= f"{date_to} 23:59:59")
+    if product_id:
+        stmt_rs = stmt_rs.where(SaleItem.product_id == int(product_id))
+    if store_id:
+        stmt_rs = stmt_rs.where(RetailSale.store_id == int(store_id))
+    
+    sale_items = db.session.execute(stmt_rs).scalars().all()
+
+    # 2. Wholesale Orders Items
+    stmt_wo = db.select(WholesaleOrderItem).join(WholesaleOrder)
+    if date_from:
+        stmt_wo = stmt_wo.where(WholesaleOrder.created_at >= f"{date_from} 00:00:00")
+    if date_to:
+        stmt_wo = stmt_wo.where(WholesaleOrder.created_at <= f"{date_to} 23:59:59")
+    if product_id:
+        stmt_wo = stmt_wo.where(WholesaleOrderItem.product_id == int(product_id))
+    if store_id:
+        stmt_wo = stmt_wo.where(WholesaleOrder.store_id == int(store_id))
+
+    wo_items = db.session.execute(stmt_wo).scalars().all()
+
+    # Aggregate by Product ID
+    products_data = {}
+
+    for item in sale_items:
+        p_id = item.product_id
+        if p_id not in products_data:
+            products_data[p_id] = {
+                "productName": item.product.name,
+                "unit": item.product.unit,
+                "quantitySold": 0.0,
+                "totalSales": 0,
+                "invoiceNumbers": set()
+            }
+        products_data[p_id]["quantitySold"] += item.quantity
+        products_data[p_id]["totalSales"] += item.subtotal
+        products_data[p_id]["invoiceNumbers"].add(item.sale.invoice_number or f"SALE-{item.sale.id}")
+
+    for item in wo_items:
+        p_id = item.product_id
+        if p_id not in products_data:
+            products_data[p_id] = {
+                "productName": item.product.name,
+                "unit": item.product.unit,
+                "quantitySold": 0.0,
+                "totalSales": 0,
+                "invoiceNumbers": set()
+            }
+        products_data[p_id]["quantitySold"] += item.quantity
+        products_data[p_id]["totalSales"] += item.subtotal
+        products_data[p_id]["invoiceNumbers"].add(f"WO-{item.order.id:04d}")
+
+    # Convert to list
+    report_rows = []
+    for p_id, data in products_data.items():
+        inv_count = len(data["invoiceNumbers"])
+        report_rows.append({
+            "productId": p_id,
+            "productName": data["productName"],
+            "unit": data["unit"],
+            "quantitySold": data["quantitySold"],
+            "invoicesCount": inv_count,
+            "totalSales": data["totalSales"]
+        })
+
+    # Sort by productName
+    report_rows.sort(key=lambda x: x["productName"])
+    return report_rows
+
+
+@reports_bp.route("/product-sales", methods=["GET"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def get_general_product_sales_report():
+    date_from = request.args.get("dateFrom")
+    date_to = request.args.get("dateTo")
+    product_id = request.args.get("productId")
+    store_id = request.args.get("storeId")
+
+    rows = _get_product_sales_report_data(date_from, date_to, product_id, store_id)
+
+    grand_total_qty = sum(x["quantitySold"] for x in rows)
+    grand_total_sales = sum(x["totalSales"] for x in rows)
+
+    return jsonify({
+        "data": rows,
+        "summary": {
+            "grandTotalQuantity": grand_total_qty,
+            "grandTotalSales": grand_total_sales
+        }
+    }), 200
+
+
+@reports_bp.route("/product-sales-pdf", methods=["GET"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def get_general_product_sales_report_pdf():
+    date_from = request.args.get("dateFrom")
+    date_to = request.args.get("dateTo")
+    product_id = request.args.get("productId")
+    store_id = request.args.get("storeId")
+
+    rows = _get_product_sales_report_data(date_from, date_to, product_id, store_id)
+
+    grand_total_qty = sum(x["quantitySold"] for x in rows)
+    grand_total_sales = sum(x["totalSales"] for x in rows)
+
+    period_str = f"{date_from or 'Start'} to {date_to or 'End'}"
+
+    from flask import render_template
+    import io
+    from app.services.invoice_service import generate_invoice_pdf
+    
+    def fmt_rupees(paise):
+        return '₹' + f"{paise / 100:,.2f}"
+
+    import os
+    roboto_font_path = os.path.abspath("backend/app/static/fonts/Roboto-Regular.ttf").replace("\\", "/")
+    
+    html_content = render_template(
+        "product_sales_report_pdf.html",
+        generated_at=datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%d-%m-%Y %H:%M"),
+        period=period_str,
+        rows=rows,
+        summary={
+            "grandTotalQuantity": grand_total_qty,
+            "grandTotalSales": grand_total_sales
+        },
+        fmtRupees=fmt_rupees,
+        roboto_font_path=roboto_font_path
+    )
+
+    try:
+        pdf_bytes = generate_invoice_pdf(html_content)
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"product_sales_report_{datetime.now().strftime('%Y%m%d')}.pdf"
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate product sales report PDF: {e}"}), 500
+
+
+@reports_bp.route("/product-sales-excel", methods=["GET"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def get_general_product_sales_report_excel():
+    date_from = request.args.get("dateFrom")
+    date_to = request.args.get("dateTo")
+    product_id = request.args.get("productId")
+    store_id = request.args.get("storeId")
+
+    rows = _get_product_sales_report_data(date_from, date_to, product_id, store_id)
+
+    import openpyxl
+    from openpyxl.styles import PatternFill, Font, Alignment
+    import io
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Product Sales"
+
+    header_fill = PatternFill(start_color="0E3A2A", end_color="0E3A2A", fill_type="solid")
+    header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+    bold_font = Font(name="Segoe UI", size=10, bold=True)
+    regular_font = Font(name="Segoe UI", size=10)
+
+    ws.append(["AM & KHK Vegetable Merchants"])
+    ws.append(["General Product Sales Report"])
+    ws.append([f"Period: {date_from or 'Start'} to {date_to or 'End'}"])
+    ws.append([])
+
+    headers = ["Product Name", "Unit", "Quantity Sold", "Number of Invoices", "Total Sales (₹)"]
+    ws.append(headers)
+
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=5, column=col_idx)
+        cell.fill = header_fill
+        cell.font = header_font
+
+    for x in rows:
+        ws.append([
+            x["productName"],
+            x["unit"],
+            x["quantitySold"],
+            x["invoicesCount"],
+            x["totalSales"] / 100
+        ])
+
+    grand_total_qty = sum(x["quantitySold"] for x in rows)
+    grand_total_sales = sum(x["totalSales"] for x in rows)
+
+    ws.append([])
+    ws.append(["Grand Totals"])
+    ws.cell(row=ws.max_row, column=1).font = bold_font
+    
+    ws.append(["Grand Total Quantity Sold", grand_total_qty])
+    ws.cell(row=ws.max_row, column=1).font = regular_font
+    ws.cell(row=ws.max_row, column=2).font = bold_font
+
+    ws.append(["Grand Total Sales Amount (₹)", grand_total_sales / 100])
+    ws.cell(row=ws.max_row, column=1).font = regular_font
+    ws.cell(row=ws.max_row, column=2).font = bold_font
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return send_file(
+        output,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=f"product_sales_report_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    )
+
+

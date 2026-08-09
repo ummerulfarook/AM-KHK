@@ -44,4 +44,33 @@ export const reportsApi = {
     link.remove()
     window.URL.revokeObjectURL(url)
   },
+
+  /** GET /api/reports/product-sales — Get product-wise sales report */
+  getProductSalesReport: (params = {}) => api.get('/api/reports/product-sales', { params }).then(r => r.data),
+
+  /** GET /api/reports/product-sales-pdf — Download product sales report PDF */
+  downloadProductSalesReportPdf: async (params = {}) => {
+    const response = await api.get('/api/reports/product-sales-pdf', { params, responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `product_sales_report_${new Date().toISOString().split('T')[0]}.pdf`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  },
+
+  /** GET /api/reports/product-sales-excel — Export product sales report Excel */
+  exportProductSalesReportExcel: async (params = {}) => {
+    const response = await api.get('/api/reports/product-sales-excel', { params, responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `product_sales_report_${new Date().toISOString().split('T')[0]}.xlsx`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  },
 }

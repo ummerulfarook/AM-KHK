@@ -13,6 +13,7 @@ class WholesaleOrder(db.Model):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    store_id: Mapped[int | None] = mapped_column(ForeignKey("customer_stores.id"), nullable=True)
     delivery_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(
         SAEnum("pending", "confirmed", "packed", "out_for_delivery", "delivered", "cancelled",
@@ -42,6 +43,7 @@ class WholesaleOrder(db.Model):
     )
 
     customer = relationship("Customer", back_populates="wholesale_orders")
+    store = relationship("CustomerStore")
     items = relationship("WholesaleOrderItem", back_populates="order", cascade="all, delete-orphan")
     created_by = relationship("User", foreign_keys=[created_by_id])
 
@@ -50,6 +52,8 @@ class WholesaleOrder(db.Model):
             "id": self.id,
             "customerId": self.customer_id,
             "customerName": self.customer.name if self.customer else None,
+            "storeId": self.store_id,
+            "storeName": self.store.name if self.store else None,
             "deliveryDate": self.delivery_date.isoformat() if self.delivery_date else None,
             "status": self.status, "notes": self.notes,
             "totalAmount": self.total_amount, "discount": self.discount,

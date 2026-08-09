@@ -28,6 +28,22 @@ def run_auto_migrations(db_path: str):
             # If the column exists but we need to migrate/fill data, we could do it here
             pass
 
+    # Create customer_stores table if missing
+    try:
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS customer_stores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL,
+            name VARCHAR(120) NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+        );
+        """)
+        print("[AUTO-MIGRATION] Ensured table 'customer_stores' exists")
+    except Exception as e:
+        print(f"[AUTO-MIGRATION-ERROR] Failed to ensure table 'customer_stores' exists: {e}")
+
     # 1. sale_items columns
     add_column_if_missing("sale_items", "boxes", "INTEGER", default_val="0")
     add_column_if_missing("sale_items", "box_weight", "REAL", default_val="0.0")
@@ -42,9 +58,11 @@ def run_auto_migrations(db_path: str):
     add_column_if_missing("retail_sales", "bank_received", "INTEGER", default_val="0")
     add_column_if_missing("retail_sales", "upi_id", "VARCHAR(100)", default_val="NULL")
     add_column_if_missing("retail_sales", "bank_name", "VARCHAR(100)", default_val="NULL")
+    add_column_if_missing("retail_sales", "store_id", "INTEGER", default_val="NULL")
 
     # 4. wholesale_orders columns
     add_column_if_missing("wholesale_orders", "bank_name", "VARCHAR(100)", default_val="NULL")
+    add_column_if_missing("wholesale_orders", "store_id", "INTEGER", default_val="NULL")
 
     # 5. payments columns
     add_column_if_missing("payments", "bank_name", "VARCHAR(100)", default_val="NULL")

@@ -40,6 +40,7 @@ export default function OrdersPage() {
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([]) // [{ productId, productName, unit, quantity, unitPrice (paise), subtotal }]
   const [formError, setFormError] = useState('')
+  const [storeId, setStoreId] = useState('')
 
   // Product Add state
   const [selectedProduct, setSelectedProduct] = useState(null)
@@ -95,6 +96,7 @@ export default function OrdersPage() {
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleOpenAdd = () => {
     setCustomer(null)
+    setStoreId('')
     setDeliveryDate('')
     setPaymentMethod('credit')
     setDiscount('0')
@@ -170,6 +172,7 @@ export default function OrdersPage() {
 
     const payload = {
       customerId: customer.id,
+      storeId: storeId ? parseInt(storeId) : null,
       deliveryDate: deliveryDate || null,
       paymentMethod,
       discount: parseFloat(discount) || 0,
@@ -327,12 +330,42 @@ export default function OrdersPage() {
                   options={wholesaleCustomers}
                   getOptionLabel={(c) => c.name || ''}
                   value={customer}
-                  onChange={(_, v) => setCustomer(v)}
+                  onChange={(_, v) => {
+                    setCustomer(v)
+                    setStoreId('')
+                  }}
                   renderInput={(params) => (
                     <TextField {...params} label="Wholesale Customer" required size="small" />
                   )}
                 />
               </Grid>
+
+              {/* Store Selector (if customer has active stores) */}
+              {customer && customer.stores && customer.stores.filter(s => s.isActive).length > 0 && (
+                <Grid item xs={12}>
+                  <FormControl size="small" fullWidth>
+                    <InputLabel id="order-store-label">Select Sub-Store / Branch</InputLabel>
+                    <Select
+                      labelId="order-store-label"
+                      id="order-store"
+                      value={storeId || ""}
+                      label="Select Sub-Store / Branch"
+                      onChange={(e) => setStoreId(e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>Direct / Main (No Sub-Store)</em>
+                      </MenuItem>
+                      {customer.stores
+                        .filter((s) => s.isActive)
+                        .map((s) => (
+                          <MenuItem key={s.id} value={s.id}>
+                            {s.name}
+                          </MenuItem>
+                        ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
 
               {/* Delivery Date */}
               <Grid item xs={12} sm={6}>

@@ -12,6 +12,8 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded'
 import { reportsApi } from '../../api/reportsApi'
+import { inventoryApi } from '../../api/inventoryApi'
+import { customersApi } from '../../api/customersApi'
 import { tokens } from '../../theme/theme'
 import StatCard from '../../components/common/StatCard'
 
@@ -83,6 +85,39 @@ export default function ReportsPage() {
     }),
     enabled: activeTab === 1,
   })
+
+  // Product Sales Report states
+  const [prodDateFrom, setProdDateFrom] = useState('')
+  const [prodDateTo, setProdDateTo] = useState('')
+  const [prodProductId, setProdProductId] = useState('')
+  const [prodStoreId, setProdStoreId] = useState('')
+
+  const allProductsStoreQuery = useQuery({
+    queryKey: ['all-products-for-report'],
+    queryFn: () => inventoryApi.getProducts({ perPage: 5000 }),
+    enabled: activeTab === 2
+  })
+  const reportProducts = allProductsStoreQuery.data?.data || []
+
+  const allStoresQuery = useQuery({
+    queryKey: ['all-stores-for-report'],
+    queryFn: () => customersApi.listAllCustomerStores(),
+    enabled: activeTab === 2
+  })
+  const reportStores = allStoresQuery.data?.data || []
+
+  const productSalesReportQuery = useQuery({
+    queryKey: ['general-product-sales-report', prodDateFrom, prodDateTo, prodProductId, prodStoreId],
+    queryFn: () => reportsApi.getProductSalesReport({
+      dateFrom: prodDateFrom || undefined,
+      dateTo: prodDateTo || undefined,
+      productId: prodProductId || undefined,
+      storeId: prodStoreId || undefined
+    }),
+    enabled: activeTab === 2
+  })
+  const productSalesReportRows = productSalesReportQuery.data?.data || []
+  const productSalesReportSummary = productSalesReportQuery.data?.summary || { grandTotalQuantity: 0, grandTotalSales: 0 }
 
   const reportDataRaw = reportsQuery.data?.data || []
   const summary = reportsQuery.data?.summary || {}
@@ -178,6 +213,51 @@ export default function ReportsPage() {
               </Button>
             </>
           )}
+          {activeTab === 2 && (
+            <>
+              <Button
+                id="btn-export-pdf-prod-sales"
+                variant="contained"
+                color="primary"
+                startIcon={<PictureAsPdfRoundedIcon />}
+                onClick={async () => {
+                  try {
+                    await reportsApi.downloadProductSalesReportPdf({
+                      dateFrom: prodDateFrom || undefined,
+                      dateTo: prodDateTo || undefined,
+                      productId: prodProductId || undefined,
+                      storeId: prodStoreId || undefined
+                    })
+                  } catch (e) {
+                    console.error(e)
+                  }
+                }}
+                sx={{ borderRadius: '12px' }}
+              >
+                Download PDF
+              </Button>
+              <Button
+                id="btn-export-excel-prod-sales"
+                variant="outlined"
+                startIcon={<DownloadRoundedIcon />}
+                onClick={async () => {
+                  try {
+                    await reportsApi.exportProductSalesReportExcel({
+                      dateFrom: prodDateFrom || undefined,
+                      dateTo: prodDateTo || undefined,
+                      productId: prodProductId || undefined,
+                      storeId: prodStoreId || undefined
+                    })
+                  } catch (e) {
+                    console.error(e)
+                  }
+                }}
+                sx={{ borderRadius: '12px' }}
+              >
+                Export Excel
+              </Button>
+            </>
+          )}
         </Stack>
       </Box>
 
@@ -186,6 +266,7 @@ export default function ReportsPage() {
         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} textColor="primary" indicatorColor="primary">
           <Tab label="Financial Reports Directory" sx={{ fontWeight: 600 }} />
           <Tab label="Payment Accounts Report" sx={{ fontWeight: 600 }} />
+          <Tab label="Product Sales Report" sx={{ fontWeight: 600 }} />
         </Tabs>
       </Box>
 
@@ -283,6 +364,67 @@ export default function ReportsPage() {
               onChange={e => setDateTo(e.target.value)}
               InputLabelProps={{ shrink: true }}
             />
+          </>
+        )}
+
+        {activeTab === 2 && (
+          <>
+            <TextField
+              id="prod-sales-date-from"
+              label="From Date"
+              type="date"
+              size="small"
+              value={prodDateFrom}
+              onChange={e => setProdDateFrom(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              id="prod-sales-date-to"
+              label="To Date"
+              type="date"
+              size="small"
+              value={prodDateTo}
+              onChange={e => setProdDateTo(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel id="prod-sales-product-label">Product</InputLabel>
+              <Select
+                labelId="prod-sales-product-label"
+                id="prod-sales-product"
+                value={prodProductId}
+                label="Product"
+                onChange={e => setProdProductId(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>All Products</em>
+                </MenuItem>
+                {reportProducts.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel id="prod-sales-store-label">Store</InputLabel>
+              <Select
+                labelId="prod-sales-store-label"
+                id="prod-sales-store"
+                value={prodStoreId}
+                label="Store"
+                onChange={e => setProdStoreId(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>All Stores / Direct Invoices</em>
+                </MenuItem>
+                {reportStores.map((s) => (
+                  <MenuItem key={s.id} value={s.id}>
+                    {s.name} ({s.customerName})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </>
         )}
 
@@ -644,6 +786,76 @@ export default function ReportsPage() {
                             </TableRow>
                           ))
                         )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* ── TAB 2: Product Sales Report ───────────────────────────────────────── */}
+      {activeTab === 2 && (
+        <Grid container spacing={3.5}>
+          {/* Summary Cards */}
+          <Grid item xs={12}>
+            <Grid container spacing={2.5}>
+              <Grid item xs={12} sm={6}>
+                <StatCard
+                  title="Grand Total Quantity Sold"
+                  value={productSalesReportSummary.grandTotalQuantity.toFixed(2)}
+                  subtitle="Across all items"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <StatCard
+                  title="Grand Total Sales Amount"
+                  value={fmtRupees(productSalesReportSummary.grandTotalSales)}
+                  subtitle="Total revenue generated"
+                  valueColor={tokens.emerald600}
+                />
+              </Grid>
+            </Grid>
+          </Grid>
+
+          {/* Details Table Card */}
+          <Grid item xs={12}>
+            <Card sx={{ borderRadius: '20px', border: `1px solid ${tokens.border}` }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Product Sales Aggregated Details</Typography>
+                
+                {productSalesReportQuery.isError ? (
+                  <Alert severity="error">Failed to load product sales report</Alert>
+                ) : productSalesReportQuery.isLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+                ) : !productSalesReportRows.length ? (
+                  <Typography sx={{ textAlign: 'center', py: 4, color: tokens.textSecondary }}>
+                    No product sales found matching the selected filters.
+                  </Typography>
+                ) : (
+                  <TableContainer component={Paper} elevation={0}>
+                    <Table size="small">
+                      <TableHead sx={{ backgroundColor: tokens.surfaceAlt }}>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 700 }}>Product Name</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Unit</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>Total Quantity Sold</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>Number of Invoices</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>Total Sales Amount</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {productSalesReportRows.map((row) => (
+                          <TableRow key={row.productId} hover>
+                            <TableCell sx={{ fontWeight: 600 }}>{row.productName}</TableCell>
+                            <TableCell>{row.unit}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>{row.quantitySold.toFixed(2)}</TableCell>
+                            <TableCell align="right">{row.invoicesCount}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, color: tokens.emerald600 }}>{fmtRupees(row.totalSales)}</TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </TableContainer>

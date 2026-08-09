@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>General Product Sales Report</title>
+  <style>
+    @page {
+      size: a4 portrait;
+      margin: 15mm 10mm;
+    }
+    @font-face {
+      font-family: 'Roboto';
+      src: url("{{ roboto_font_path }}");
+    }
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      font-size: 11px;
+      color: #0F2419;
+      background: #fff;
+    }
+    .header-table {
+      width: 100%;
+      border: none;
+      margin-bottom: 20px;
+    }
+    .header-table td {
+      border: none;
+      padding: 0;
+      vertical-align: top;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #0E3A2A;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #71837A;
+      margin-bottom: 2px;
+    }
+    /* Info Block */
+    .info-table {
+      width: 100%;
+      background: #EEF5F0;
+      border: 1px solid #E2EBE4;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 20px;
+    }
+    .info-table td {
+      border: none;
+      padding: 4px 8px;
+      font-size: 11px;
+      vertical-align: top;
+    }
+    .label {
+      color: #71837A;
+      font-weight: bold;
+      width: 18%;
+    }
+    .val {
+      font-weight: bold;
+      color: #0F2419;
+      width: 82%;
+    }
+    /* Summary Stats Grid */
+    .stats-table {
+      width: 100%;
+      margin-bottom: 20px;
+      border-collapse: collapse;
+    }
+    .stats-table td {
+      width: 50%;
+      border: 1px solid #E2EBE4;
+      padding: 10px;
+      background: #EEF5F0;
+      text-align: center;
+    }
+    .stat-title {
+      font-size: 9px;
+      color: #71837A;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .stat-val {
+      font-size: 18px;
+      font-weight: bold;
+      color: #0E3A2A;
+    }
+    /* Main Report Table */
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .report-table th {
+      background-color: #0E3A2A;
+      color: #ffffff;
+      text-align: left;
+      font-weight: bold;
+      padding: 8px 10px;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .report-table td {
+      border-bottom: 1px solid #E2EBE4;
+      padding: 8px 10px;
+      vertical-align: middle;
+    }
+    .report-table tr:nth-child(even) td {
+      background-color: #F4F8F5;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .bold {
+      font-weight: bold;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 9px;
+      color: #71837A;
+      border-top: 1px dashed #E2EBE4;
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <table class="header-table">
+    <tr>
+      <td>
+        <div class="title">AM & KHK Vegetable Merchants</div>
+        <div class="subtitle">Cheranalloor, Ernakulam | Ph: 9846089118, 9895110194</div>
+      </td>
+      <td class="text-right">
+        <div class="bold" style="font-size: 14px; color: #059669;">General Product Sales Report</div>
+        <div class="subtitle">Generated on: {{ generated_at }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Filter details -->
+  <table class="info-table">
+    <tr>
+      <td class="label">Period Filter:</td>
+      <td class="val">{{ period }}</td>
+    </tr>
+  </table>
+
+  <!-- Aggregated Summary -->
+  <table class="stats-table">
+    <tr>
+      <td>
+        <div class="stat-title">Grand Total Quantity Sold</div>
+        <div class="stat-val">{{ summary.grandTotalQuantity }}</div>
+      </td>
+      <td>
+        <div class="stat-title">Grand Total Sales Amount</div>
+        <div class="stat-val" style="color: #059669;">{{ fmtRupees(summary.grandTotalSales) }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <h3 style="color: #0E3A2A; margin-bottom: 5px;">Product-wise Aggregated Sales</h3>
+  <!-- Data Table -->
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th>Product Name</th>
+        <th>Unit</th>
+        <th class="text-right">Total Quantity Sold</th>
+        <th class="text-right">Number of Invoices</th>
+        <th class="text-right">Total Sales Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="bold">{{ row.productName }}</td>
+        <td>{{ row.unit }}</td>
+        <td class="text-right bold">{{ row.quantitySold }}</td>
+        <td class="text-right">{{ row.invoicesCount }}</td>
+        <td class="text-right bold" style="color: #0E3A2A;">{{ fmtRupees(row.totalSales) }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" style="text-align: center; color: #71837A; padding: 20px;">
+          No product sales items found matching the selected filters.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Footer -->
+  <div class="footer">
+    AM & KHK Vegetable Merchants ERP System — Page 1 of 1
+  </div>
+</body>
+</html>

@@ -25,6 +25,7 @@ class CreateSaleRequest:
     items: list[SaleItemRequest]
     payment_method: str
     customer_id: Optional[int] = None
+    store_id: Optional[int] = None
     discount: int = 0      # paise
     tax: int = 0           # paise
     notes: Optional[str] = None
@@ -81,6 +82,14 @@ class CreateSaleRequest:
                 customer_id = int(customer_id)
             except (TypeError, ValueError):
                 customer_id = None
+
+        # Store
+        store_id = data.get("storeId")
+        if store_id is not None:
+            try:
+                store_id = int(store_id)
+            except (TypeError, ValueError):
+                store_id = None
 
         # Credit requires a customer
         if payment_method == "credit" and not customer_id:
@@ -143,6 +152,7 @@ class CreateSaleRequest:
             items=items,
             payment_method=payment_method,
             customer_id=customer_id,
+            store_id=store_id,
             discount=discount,
             tax=tax,
             notes=notes,

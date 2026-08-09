@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, send_file
 from flask_login import login_required, current_user
 from sqlalchemy import func, or_
 from app import db
-from app.models.customer import Customer
+from app.models.customer import Customer, CustomerStore
 from app.models.sale import RetailSale, SaleItem
 from app.models.order import WholesaleOrder, WholesaleOrderItem
 from app.models.credit import CreditLedger, Payment
@@ -225,6 +225,7 @@ def get_customer_history(cust_id: int):
     per_page = min(1000, request.args.get("perPage", 10, type=int)) # Support larger page sizes for statement prints
     date_from = request.args.get("dateFrom")
     date_to = request.args.get("dateTo")
+    store_id = request.args.get("storeId")
 
     # Fetch retail sales
     stmt_rs = db.select(RetailSale).where(RetailSale.customer_id == cust_id)
@@ -232,6 +233,11 @@ def get_customer_history(cust_id: int):
         stmt_rs = stmt_rs.where(RetailSale.created_at >= f"{date_from} 00:00:00")
     if date_to:
         stmt_rs = stmt_rs.where(RetailSale.created_at <= f"{date_to} 23:59:59")
+    if store_id:
+        try:
+            stmt_rs = stmt_rs.where(RetailSale.store_id == int(store_id))
+        except (ValueError, TypeError):
+            pass
     retail_sales = db.session.execute(stmt_rs).scalars().all()
 
     # Fetch wholesale orders
@@ -240,6 +246,11 @@ def get_customer_history(cust_id: int):
         stmt_wo = stmt_wo.where(WholesaleOrder.created_at >= f"{date_from} 00:00:00")
     if date_to:
         stmt_wo = stmt_wo.where(WholesaleOrder.created_at <= f"{date_to} 23:59:59")
+    if store_id:
+        try:
+            stmt_wo = stmt_wo.where(WholesaleOrder.store_id == int(store_id))
+        except (ValueError, TypeError):
+            pass
     wholesale_orders = db.session.execute(stmt_wo).scalars().all()
 
     # Combine & format
@@ -271,6 +282,8 @@ def get_customer_history(cust_id: int):
             "paymentStatus": payment_status,
             "amountPaid": amount_paid,
             "balance": balance,
+            "storeId": rs.store_id,
+            "storeName": rs.store.name if rs.store else None,
             "createdAt": rs.created_at.isoformat(),
         })
 
@@ -302,6 +315,8 @@ def get_customer_history(cust_id: int):
             "paymentStatus": payment_status,
             "amountPaid": amount_paid,
             "balance": balance,
+            "storeId": wo.store_id,
+            "storeName": wo.store.name if wo.store else None,
             "createdAt": wo.created_at.isoformat(),
         })
 
@@ -690,4 +705,356 @@ def download_customer_ledger_pdf(cust_id: int):
         )
     except Exception as e:
         return jsonify({"error": f"Failed to generate customer ledger PDF: {e}"}), 500
+
+
+# ── Customer Sub-Stores CRUD routes ──────────────────────────────────────────
+
+@customers_bp.route("/stores", methods=["GET"])
+@login_required
+def list_all_customer_stores():
+    stores = db.session.execute(
+        db.select(CustomerStore).where(CustomerStore.is_active == 1).order_by(CustomerStore.name)
+    ).scalars().all()
+    return jsonify({"data": [{
+        "id": s.id,
+        "name": s.name,
+        "customerName": s.customer.name
+    } for s in stores]}), 200
+
+
+@customers_bp.route("/<int:customer_id>/stores", methods=["GET"])
+@login_required
+def list_customer_stores(customer_id):
+    customer = db.session.get(Customer, customer_id)
+    if not customer:
+        return jsonify({"error": "Customer not found"}), 404
+    stores = db.session.execute(
+        db.select(CustomerStore)
+        .where(CustomerStore.customer_id == customer_id)
+        .order_by(CustomerStore.name)
+    ).scalars().all()
+    return jsonify({"data": [s.to_dict() for s in stores]}), 200
+
+
+@customers_bp.route("/<int:customer_id>/stores", methods=["POST"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def create_customer_store(customer_id):
+    customer = db.session.get(Customer, customer_id)
+    if not customer:
+        return jsonify({"error": "Customer not found"}), 404
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Store name is required"}), 422
+    
+    # check for duplicate names under same customer
+    existing = db.session.execute(
+        db.select(CustomerStore).where(
+            CustomerStore.customer_id == customer_id,
+            CustomerStore.name == name
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return jsonify({"error": "Store name already exists for this customer"}), 422
+
+    store = CustomerStore(customer_id=customer_id, name=name, is_active=1)
+    db.session.add(store)
+    db.session.commit()
+    return jsonify({"data": store.to_dict()}), 201
+
+
+@customers_bp.route("/stores/<int:store_id>", methods=["PUT"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def update_customer_store(store_id):
+    store = db.session.get(CustomerStore, store_id)
+    if not store:
+        return jsonify({"error": "Store not found"}), 404
+    data = request.get_json(silent=True) or {}
+    
+    if "name" in data:
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "Store name cannot be empty"}), 422
+        existing = db.session.execute(
+            db.select(CustomerStore).where(
+                CustomerStore.customer_id == store.customer_id,
+                CustomerStore.name == name,
+                CustomerStore.id != store_id
+            )
+        ).scalar_one_or_none()
+        if existing:
+            return jsonify({"error": "Store name already exists for this customer"}), 422
+        store.name = name
+
+    if "isActive" in data:
+        store.is_active = 1 if data.get("isActive") else 0
+
+    db.session.commit()
+    return jsonify({"data": store.to_dict()}), 200
+
+
+# ── Customer Sales Report endpoints ──────────────────────────────────────────
+
+def _get_customer_sales_report_data(customer_id, date_from, date_to, product_id, store_id):
+    # 1. Retail Sales Items
+    stmt_rs = db.select(SaleItem).join(RetailSale).where(RetailSale.customer_id == customer_id)
+    if date_from:
+        stmt_rs = stmt_rs.where(RetailSale.created_at >= f"{date_from} 00:00:00")
+    if date_to:
+        stmt_rs = stmt_rs.where(RetailSale.created_at <= f"{date_to} 23:59:59")
+    if product_id:
+        stmt_rs = stmt_rs.where(SaleItem.product_id == int(product_id))
+    if store_id:
+        stmt_rs = stmt_rs.where(RetailSale.store_id == int(store_id))
+    
+    sale_items = db.session.execute(stmt_rs).scalars().all()
+
+    # 2. Wholesale Orders Items
+    stmt_wo = db.select(WholesaleOrderItem).join(WholesaleOrder).where(WholesaleOrder.customer_id == customer_id)
+    if date_from:
+        stmt_wo = stmt_wo.where(WholesaleOrder.created_at >= f"{date_from} 00:00:00")
+    if date_to:
+        stmt_wo = stmt_wo.where(WholesaleOrder.created_at <= f"{date_to} 23:59:59")
+    if product_id:
+        stmt_wo = stmt_wo.where(WholesaleOrderItem.product_id == int(product_id))
+    if store_id:
+        stmt_wo = stmt_wo.where(WholesaleOrder.store_id == int(store_id))
+
+    wo_items = db.session.execute(stmt_wo).scalars().all()
+
+    report_items = []
+    for item in sale_items:
+        report_items.append({
+            "invoiceNumber": item.sale.invoice_number or f"SALE-{item.sale.id}",
+            "date": item.sale.created_at,
+            "storeName": item.sale.store.name if item.sale.store else "Direct / Main",
+            "storeId": item.sale.store_id,
+            "productName": item.product.name,
+            "quantity": item.quantity,
+            "unit": item.product.unit,
+            "unitPrice": item.unit_price,
+            "totalAmount": item.subtotal
+        })
+
+    for item in wo_items:
+        report_items.append({
+            "invoiceNumber": f"WO-{item.order.id:04d}",
+            "date": item.order.created_at,
+            "storeName": item.order.store.name if item.order.store else "Direct / Main",
+            "storeId": item.order.store_id,
+            "productName": item.product.name,
+            "quantity": item.quantity,
+            "unit": item.product.unit,
+            "unitPrice": item.unit_price,
+            "totalAmount": item.subtotal
+        })
+
+    report_items.sort(key=lambda x: x["date"], reverse=True)
+    return report_items
+
+
+@customers_bp.route("/<int:customer_id>/sales-report", methods=["GET"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def get_customer_sales_report(customer_id):
+    customer = db.session.get(Customer, customer_id)
+    if not customer:
+        return jsonify({"error": "Customer not found"}), 404
+
+    date_from = request.args.get("dateFrom")
+    date_to = request.args.get("dateTo")
+    product_id = request.args.get("productId")
+    store_id = request.args.get("storeId")
+
+    items = _get_customer_sales_report_data(customer_id, date_from, date_to, product_id, store_id)
+
+    serialized_items = []
+    for x in items:
+        serialized_items.append({
+            **x,
+            "date": x["date"].isoformat()
+        })
+
+    total_qty = sum(x["quantity"] for x in items)
+    total_amount = sum(x["totalAmount"] for x in items)
+    unique_invoices = len(set(x["invoiceNumber"] for x in items))
+
+    store_subtotals = {}
+    for x in items:
+        s_name = x["storeName"]
+        if s_name not in store_subtotals:
+            store_subtotals[s_name] = {"quantity": 0.0, "amount": 0}
+        store_subtotals[s_name]["quantity"] += x["quantity"]
+        store_subtotals[s_name]["amount"] += x["totalAmount"]
+
+    return jsonify({
+        "data": serialized_items,
+        "summary": {
+            "totalInvoices": unique_invoices,
+            "totalQuantity": total_qty,
+            "totalAmount": total_amount
+        },
+        "storeSubtotals": store_subtotals
+    }), 200
+
+
+@customers_bp.route("/<int:customer_id>/sales-report-pdf", methods=["GET"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def get_customer_sales_report_pdf(customer_id):
+    customer = db.session.get(Customer, customer_id)
+    if not customer:
+        return jsonify({"error": "Customer not found"}), 404
+
+    date_from = request.args.get("dateFrom")
+    date_to = request.args.get("dateTo")
+    product_id = request.args.get("productId")
+    store_id = request.args.get("storeId")
+
+    items = _get_customer_sales_report_data(customer_id, date_from, date_to, product_id, store_id)
+
+    formatted_rows = []
+    for x in items:
+        formatted_rows.append({
+            **x,
+            "date_str": x["date"].strftime("%d-%m-%Y %H:%M")
+        })
+
+    period_str = f"{date_from or 'Start'} to {date_to or 'End'}"
+    
+    total_qty = sum(x["quantity"] for x in items)
+    total_amount = sum(x["totalAmount"] for x in items)
+    unique_invoices = len(set(x["invoiceNumber"] for x in items))
+
+    store_subtotals = {}
+    for x in items:
+        s_name = x["storeName"]
+        if s_name not in store_subtotals:
+            store_subtotals[s_name] = {"quantity": 0.0, "amount": 0}
+        store_subtotals[s_name]["quantity"] += x["quantity"]
+        store_subtotals[s_name]["amount"] += x["totalAmount"]
+
+    from flask import render_template
+    import io
+    from app.services.invoice_service import generate_invoice_pdf
+    
+    def fmt_rupees(paise):
+        return '₹' + f"{paise / 100:,.2f}"
+
+    import os
+    roboto_font_path = os.path.abspath("backend/app/static/fonts/Roboto-Regular.ttf").replace("\\", "/")
+    
+    html_content = render_template(
+        "customer_sales_report_pdf.html",
+        customer=customer,
+        generated_at=datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%d-%m-%Y %H:%M"),
+        period=period_str,
+        rows=formatted_rows,
+        summary={
+            "totalInvoices": unique_invoices,
+            "totalQuantity": total_qty,
+            "totalAmount": total_amount
+        },
+        storeSubtotals=store_subtotals,
+        fmtRupees=fmt_rupees,
+        roboto_font_path=roboto_font_path
+    )
+
+    try:
+        pdf_bytes = generate_invoice_pdf(html_content)
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"sales_report_{customer.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate customer sales report PDF: {e}"}), 500
+
+
+@customers_bp.route("/<int:customer_id>/sales-report-excel", methods=["GET"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def get_customer_sales_report_excel(customer_id):
+    customer = db.session.get(Customer, customer_id)
+    if not customer:
+        return jsonify({"error": "Customer not found"}), 404
+
+    date_from = request.args.get("dateFrom")
+    date_to = request.args.get("dateTo")
+    product_id = request.args.get("productId")
+    store_id = request.args.get("storeId")
+
+    items = _get_customer_sales_report_data(customer_id, date_from, date_to, product_id, store_id)
+
+    import openpyxl
+    from openpyxl.styles import PatternFill, Font, Alignment
+    import io
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Sales Report"
+
+    header_fill = PatternFill(start_color="0E3A2A", end_color="0E3A2A", fill_type="solid")
+    header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+    bold_font = Font(name="Segoe UI", size=10, bold=True)
+    regular_font = Font(name="Segoe UI", size=10)
+
+    ws.append(["AM & KHK Vegetable Merchants"])
+    ws.append([f"Customer Sales Report: {customer.name}"])
+    ws.append([f"Period: {date_from or 'Start'} to {date_to or 'End'}"])
+    ws.append([])
+
+    headers = ["Invoice Number", "Date", "Store Name", "Product Name", "Quantity", "Unit", "Unit Price (₹)", "Total Amount (₹)"]
+    ws.append(headers)
+
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=5, column=col_idx)
+        cell.fill = header_fill
+        cell.font = header_font
+
+    for x in items:
+        ws.append([
+            x["invoiceNumber"],
+            x["date"].strftime("%Y-%m-%d %H:%M"),
+            x["storeName"],
+            x["productName"],
+            x["quantity"],
+            x["unit"],
+            x["unitPrice"] / 100,
+            x["totalAmount"] / 100
+        ])
+
+    total_qty = sum(x["quantity"] for x in items)
+    total_amount = sum(x["totalAmount"] for x in items)
+    unique_invoices = len(set(x["invoiceNumber"] for x in items))
+
+    ws.append([])
+    ws.append(["Summary Totals"])
+    ws.cell(row=ws.max_row, column=1).font = bold_font
+    
+    ws.append(["Total Unique Invoices", unique_invoices])
+    ws.cell(row=ws.max_row, column=1).font = regular_font
+    ws.cell(row=ws.max_row, column=2).font = bold_font
+
+    ws.append(["Total Quantity Sold", total_qty])
+    ws.cell(row=ws.max_row, column=1).font = regular_font
+    ws.cell(row=ws.max_row, column=2).font = bold_font
+
+    ws.append(["Total Sales Amount (₹)", total_amount / 100])
+    ws.cell(row=ws.max_row, column=1).font = regular_font
+    ws.cell(row=ws.max_row, column=2).font = bold_font
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return send_file(
+        output,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=f"sales_report_{customer.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    )
 

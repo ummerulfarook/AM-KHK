@@ -1,6 +1,6 @@
 """Customer model."""
 from datetime import datetime, timezone
-from sqlalchemy import Integer, String, DateTime, Enum as SAEnum
+from sqlalchemy import Integer, String, DateTime, Enum as SAEnum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app import db
 
@@ -30,6 +30,7 @@ class Customer(db.Model):
     sales = relationship("RetailSale", back_populates="customer")
     wholesale_orders = relationship("WholesaleOrder", back_populates="customer")
     credit_entries = relationship("CreditLedger", back_populates="customer", cascade="all, delete-orphan")
+    stores = relationship("CustomerStore", back_populates="customer", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -40,5 +41,31 @@ class Customer(db.Model):
             "outstandingBalance": self.outstanding_balance,
             "isActive": bool(self.is_active),
             "partner": self.partner,
+            "createdAt": self.created_at.isoformat(),
+            "stores": [s.to_dict() for s in self.stores],
+        }
+
+
+class CustomerStore(db.Model):
+    __tablename__ = "customer_stores"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    customer = relationship("Customer", back_populates="stores")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "customerId": self.customer_id,
+            "name": self.name,
+            "isActive": bool(self.is_active),
             "createdAt": self.created_at.isoformat(),
         }

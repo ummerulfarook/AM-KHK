@@ -11,7 +11,7 @@ from sqlalchemy import func, or_
 from app import db
 from app.models.order import WholesaleOrder, WholesaleOrderItem
 from app.models.product import Product
-from app.models.customer import Customer
+from app.models.customer import Customer, CustomerStore
 from app.models.credit import CreditLedger
 from app.models.settings import Setting
 from app.services.invoice_service import render_invoice_html, generate_invoice_pdf
@@ -122,12 +122,24 @@ def create_order():
     notes = (data.get("notes") or "").strip() or None
     discount = _rupees_to_paise(data.get("discount", 0))
 
+    store_id = data.get("storeId")
+    if store_id:
+        try:
+            store_id = int(store_id)
+            # Check store belongs to this customer
+            store_obj = db.session.get(CustomerStore, store_id)
+            if not store_obj or store_obj.customer_id != customer_id:
+                return jsonify({"error": "Store does not belong to this customer"}), 422
+        except (ValueError, TypeError):
+            store_id = None
+
     try:
         from app.utils.date_helper import get_working_date
         working_dt = get_working_date()
         # Build order
         order = WholesaleOrder(
             customer_id=customer_id,
+            store_id=store_id,
             delivery_date=delivery_date,
             status="pending",
             notes=notes,

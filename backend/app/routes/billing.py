@@ -133,6 +133,7 @@ def create_sale():
         sale = RetailSale(
             invoice_number=inv_num,
             customer_id=req.customer_id,
+            store_id=req.store_id,
             cashier_id=current_user.id,
             payment_method=req.payment_method,
             upi_id=req.upi_id,

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Customer Sales Report - {{ customer.name }}</title>
+  <style>
+    @page {
+      size: a4 portrait;
+      margin: 15mm 10mm;
+    }
+    @font-face {
+      font-family: 'Roboto';
+      src: url("{{ roboto_font_path }}");
+    }
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      font-size: 11px;
+      color: #0F2419;
+      background: #fff;
+    }
+    .header-table {
+      width: 100%;
+      border: none;
+      margin-bottom: 20px;
+    }
+    .header-table td {
+      border: none;
+      padding: 0;
+      vertical-align: top;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #0E3A2A;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #71837A;
+      margin-bottom: 2px;
+    }
+    /* Customer Info Block */
+    .cust-info-table {
+      width: 100%;
+      background: #EEF5F0;
+      border: 1px solid #E2EBE4;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 20px;
+    }
+    .cust-info-table td {
+      border: none;
+      padding: 4px 8px;
+      font-size: 11px;
+      vertical-align: top;
+    }
+    .label {
+      color: #71837A;
+      font-weight: bold;
+      width: 18%;
+    }
+    .val {
+      font-weight: bold;
+      color: #0F2419;
+      width: 32%;
+    }
+    /* Summary Stats Grid */
+    .stats-table {
+      width: 100%;
+      margin-bottom: 20px;
+      border-collapse: collapse;
+    }
+    .stats-table td {
+      width: 33.33%;
+      border: 1px solid #E2EBE4;
+      padding: 10px;
+      background: #EEF5F0;
+      text-align: center;
+    }
+    .stat-title {
+      font-size: 9px;
+      color: #71837A;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .stat-val {
+      font-size: 16px;
+      font-weight: bold;
+      color: #0E3A2A;
+    }
+    /* Main Report Table */
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .report-table th {
+      background-color: #0E3A2A;
+      color: #ffffff;
+      text-align: left;
+      font-weight: bold;
+      padding: 8px 10px;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .report-table td {
+      border-bottom: 1px solid #E2EBE4;
+      padding: 8px 10px;
+      vertical-align: middle;
+    }
+    .report-table tr:nth-child(even) td {
+      background-color: #F4F8F5;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .bold {
+      font-weight: bold;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 9px;
+      color: #71837A;
+      border-top: 1px dashed #E2EBE4;
+      padding-top: 10px;
+    }
+    /* Subtotals Block */
+    .subtotals-box {
+      margin-top: 20px;
+      width: 50%;
+      float: right;
+      border-collapse: collapse;
+    }
+    .subtotals-box td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #E2EBE4;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <table class="header-table">
+    <tr>
+      <td>
+        <div class="title">AM & KHK Vegetable Merchants</div>
+        <div class="subtitle">Cheranalloor, Ernakulam | Ph: 9846089118, 9895110194</div>
+      </td>
+      <td class="text-right">
+        <div class="bold" style="font-size: 14px; color: #059669;">Customer Sales Report</div>
+        <div class="subtitle">Generated on: {{ generated_at }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Customer profile -->
+  <table class="cust-info-table">
+    <tr>
+      <td class="label">Customer Name:</td>
+      <td class="val">{{ customer.name }}</td>
+      <td class="label">Customer Type:</td>
+      <td class="val">{{ customer.type.upper() }}</td>
+    </tr>
+    <tr>
+      <td class="label">Phone:</td>
+      <td class="val">{{ customer.phone or 'N/A' }}</td>
+      <td class="label">Period Filter:</td>
+      <td class="val">{{ period }}</td>
+    </tr>
+  </table>
+
+  <!-- Sales Summary -->
+  <table class="stats-table">
+    <tr>
+      <td>
+        <div class="stat-title">Total Invoices</div>
+        <div class="stat-val">{{ summary.totalInvoices }}</div>
+      </td>
+      <td>
+        <div class="stat-title">Total Quantity Sold</div>
+        <div class="stat-val">{{ summary.totalQuantity }}</div>
+      </td>
+      <td>
+        <div class="stat-title">Total Sales Amount</div>
+        <div class="stat-val" style="color: #059669;">{{ fmtRupees(summary.totalAmount) }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <h3 style="color: #0E3A2A; margin-bottom: 5px;">Itemized Product Sales</h3>
+  <!-- Data Table -->
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Date</th>
+        <th>Store</th>
+        <th>Product Name</th>
+        <th class="text-right">Quantity</th>
+        <th>Unit</th>
+        <th class="text-right">Unit Price</th>
+        <th class="text-right">Total Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="bold">{{ row.invoiceNumber }}</td>
+        <td>{{ row.date_str }}</td>
+        <td>{{ row.storeName }}</td>
+        <td>{{ row.productName }}</td>
+        <td class="text-right bold">{{ row.quantity }}</td>
+        <td>{{ row.unit }}</td>
+        <td class="text-right">{{ fmtRupees(row.unitPrice) }}</td>
+        <td class="text-right bold">{{ fmtRupees(row.totalAmount) }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="8" style="text-align: center; color: #71837A; padding: 20px;">
+          No sales items found matching the selected filters.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Store-wise subtotals table -->
+  {% if storeSubtotals %}
+  <div style="width: 100%; display: block; overflow: hidden; page-break-inside: avoid;">
+    <table class="subtotals-box">
+      <thead>
+        <tr style="background-color: #EEF5F0;">
+          <th style="padding: 6px 10px; text-align: left; font-size: 10px; color: #0E3A2A;">Store Subtotals</th>
+          <th style="padding: 6px 10px; text-align: right; font-size: 10px; color: #0E3A2A;">Qty</th>
+          <th style="padding: 6px 10px; text-align: right; font-size: 10px; color: #0E3A2A;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for store_name, data in storeSubtotals.items() %}
+        <tr>
+          <td class="bold">{{ store_name }}</td>
+          <td class="text-right bold">{{ data.quantity }}</td>
+          <td class="text-right bold" style="color: #059669;">{{ fmtRupees(data.amount) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="footer" style="clear: both; margin-top: 50px;">
+    AM & KHK Vegetable Merchants ERP System — Page 1 of 1
+  </div>
+</body>
+</html>

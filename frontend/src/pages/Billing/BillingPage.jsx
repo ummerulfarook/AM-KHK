@@ -79,6 +79,7 @@ export default function BillingPage() {
   const [selectedBank, setSelectedBank] = useState(() => localStorage.getItem('pos_selected_bank') || '')
   const [invoiceToPay, setInvoiceToPay] = useState(() => localStorage.getItem('pos_invoice_to_pay') || '')
   const [customDate, setCustomDate] = useState(() => localStorage.getItem('pos_custom_date') || '')
+  const [storeId, setStoreId] = useState(() => localStorage.getItem('pos_store_id') || '')
 
   // Held Bills and Recall states
   const [heldBills, setHeldBills] = useState(() => {
@@ -181,6 +182,7 @@ export default function BillingPage() {
   }, [cart])
   useEffect(() => {
     localStorage.setItem('pos_customer', JSON.stringify(customer))
+    setStoreId('')
   }, [customer])
   useEffect(() => {
     localStorage.setItem('pos_payment_method', paymentMethod)
@@ -218,6 +220,9 @@ export default function BillingPage() {
   useEffect(() => {
     localStorage.setItem('pos_custom_date', customDate)
   }, [customDate])
+  useEffect(() => {
+    localStorage.setItem('pos_store_id', storeId)
+  }, [storeId])
   useEffect(() => {
     localStorage.setItem('pos_adhoc_name', adHocName)
   }, [adHocName])
@@ -529,6 +534,7 @@ export default function BillingPage() {
 
     createSaleMutation.mutate({
       customerId: customer?.id || null,
+      storeId: storeId ? parseInt(storeId) : null,
       items: cart.map(i => ({
         productId: i.productId,
         quantity: i.qty,
@@ -670,6 +676,31 @@ export default function BillingPage() {
                 noOptionsText="No customers found"
                 loadingText="Loading…"
               />
+
+              {/* Billing Store Select (if customer has active stores) */}
+              {customer && customer.stores && customer.stores.filter(s => s.isActive).length > 0 && (
+                <FormControl size="small" fullWidth>
+                  <InputLabel id="billing-store-label">Billing Store / Branch</InputLabel>
+                  <Select
+                    labelId="billing-store-label"
+                    id="billing-store"
+                    value={storeId || ""}
+                    label="Billing Store / Branch"
+                    onChange={(e) => setStoreId(e.target.value)}
+                  >
+                    <MenuItem value="">
+                      <em>Direct / Main (No Sub-Store)</em>
+                    </MenuItem>
+                    {customer.stores
+                      .filter((s) => s.isActive)
+                      .map((s) => (
+                        <MenuItem key={s.id} value={s.id}>
+                          {s.name}
+                        </MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+              )}
 
               {!customer && (
                 <Stack direction="row" spacing={1.5}>

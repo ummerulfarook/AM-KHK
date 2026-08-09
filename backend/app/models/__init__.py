@@ -8,7 +8,7 @@ Uses Flask-SQLAlchemy's db.Model as the base (imported from app).
 from .user import User
 from .branch import Branch
 from .product import Category, Product
-from .customer import Customer
+from .customer import Customer, CustomerStore
 from .supplier import Supplier
 from .order import WholesaleOrder, WholesaleOrderItem, PurchaseOrder, PurchaseOrderItem
 from .sale import RetailSale, SaleItem
@@ -19,7 +19,7 @@ from .settings import Setting
 __all__ = [
     "User", "Branch",
     "Category", "Product",
-    "Customer", "Supplier",
+    "Customer", "CustomerStore", "Supplier",
     "WholesaleOrder", "WholesaleOrderItem",
     "PurchaseOrder", "PurchaseOrderItem",
     "RetailSale", "SaleItem",

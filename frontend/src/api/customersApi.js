@@ -40,4 +40,45 @@ export const customersApi = {
     link.remove()
     window.URL.revokeObjectURL(url)
   },
+
+  /** GET /api/customers/stores — List all stores */
+  listAllCustomerStores: () => api.get('/api/customers/stores').then(r => r.data),
+
+  /** GET /api/customers/:id/stores — List stores */
+  listCustomerStores: (id) => api.get(`/api/customers/${id}/stores`).then(r => r.data),
+
+  /** POST /api/customers/:id/stores — Create store */
+  createCustomerStore: (id, data) => api.post(`/api/customers/${id}/stores`, data).then(r => r.data),
+
+  /** PUT /api/customers/stores/:storeId — Update store */
+  updateCustomerStore: (storeId, data) => api.put(`/api/customers/stores/${storeId}`, data).then(r => r.data),
+
+  /** GET /api/customers/:id/sales-report — Sales report JSON */
+  getCustomerSalesReport: (id, params = {}) => api.get(`/api/customers/${id}/sales-report`, { params }).then(r => r.data),
+
+  /** GET /api/customers/:id/sales-report-pdf — Download sales report PDF */
+  downloadCustomerSalesReportPdf: async (id, params = {}, customerName) => {
+    const response = await api.get(`/api/customers/${id}/sales-report-pdf`, { params, responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `sales_report_${customerName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  },
+
+  /** GET /api/customers/:id/sales-report-excel — Export sales report Excel */
+  exportCustomerSalesReportExcel: async (id, params = {}, customerName) => {
+    const response = await api.get(`/api/customers/${id}/sales-report-excel`, { params, responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `sales_report_${customerName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  },
 }

@@ -60,7 +60,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     # ── Import all models so SQLAlchemy is aware of them ──────────────────────
     with app.app_context():
         from .models import (  # noqa: F401
-            User, Branch, Category, Product, Customer, Supplier,
+            User, Branch, Category, Product, Customer, CustomerStore, Supplier,
             WholesaleOrder, WholesaleOrderItem, PurchaseOrder, PurchaseOrderItem,
             RetailSale, SaleItem, CreditLedger, Payment, Expense, Income, Setting,
         )

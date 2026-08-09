@@ -11,6 +11,7 @@ class RetailSale(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     invoice_number: Mapped[str | None] = mapped_column(String(40), unique=True)
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"))
+    store_id: Mapped[int | None] = mapped_column(ForeignKey("customer_stores.id"), nullable=True)
     cashier_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     payment_method: Mapped[str] = mapped_column(
         SAEnum("cash", "upi", "bank", "credit", name="rs_payment_method"),
@@ -36,6 +37,7 @@ class RetailSale(db.Model):
     )
 
     customer = relationship("Customer", back_populates="sales")
+    store = relationship("CustomerStore")
     cashier = relationship("User", back_populates="sales")
     items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
     credit_entries = relationship("CreditLedger", back_populates="sale", cascade="all, delete-orphan")
@@ -46,6 +48,8 @@ class RetailSale(db.Model):
             "customerId": self.customer_id,
             "customerName": self.customer.name if self.customer else (self.billing_customer_name or "Walk-in"),
             "customerPhone": self.customer.phone if self.customer else self.billing_customer_phone,
+            "storeId": self.store_id,
+            "storeName": self.store.name if self.store else None,
             "cashierId": self.cashier_id,
             "cashierName": self.cashier.name if self.cashier else None,
             "paymentMethod": self.payment_method,
