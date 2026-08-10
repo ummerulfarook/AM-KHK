@@ -39,7 +39,7 @@ def seed_fresh():
                  password_hash=hash_password("cashier123"), status="active"),
         ]
         db.session.add_all(users)
-        print("✓ Default users created (admin / admin123)")
+        print("OK: Default users created (admin / admin123)")
 
         # ── Branch ─────────────────────────────────────────────────────────
         branch = Branch(
@@ -48,7 +48,7 @@ def seed_fresh():
             phone="0484-2345678",
         )
         db.session.add(branch)
-        print("✓ Default branch created")
+        print("OK: Default branch created")
 
         # ── Categories ─────────────────────────────────────────────────────
         category_data = [
@@ -63,7 +63,7 @@ def seed_fresh():
         ]
         for cat_name, icon_key in category_data:
             db.session.add(Category(name=cat_name, icon_key=icon_key))
-        print("✓ Categories created")
+        print("OK: Categories created")
 
         # ── Settings ───────────────────────────────────────────────────────
         default_settings = [
@@ -81,10 +81,10 @@ def seed_fresh():
         ]
         for key, value, description in default_settings:
             db.session.add(Setting(key=key, value=value, description=description))
-        print("✓ Default settings created")
+        print("OK: Default settings created")
 
         db.session.commit()
-        print("\n🌿 Fresh production database initialized successfully!")
+        print("\nFresh production database initialized successfully!")
 
 if __name__ == "__main__":
     seed_fresh()
