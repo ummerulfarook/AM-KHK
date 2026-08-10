@@ -340,7 +340,6 @@ def transition_status(order_id: int):
             if existing_credit:
                 unpaid = existing_credit.amount - existing_credit.amount_paid
                 order.customer.outstanding_balance = max(0, order.customer.outstanding_balance - unpaid)
-                order.customer.opening_balance = order.customer.outstanding_balance
                 db.session.delete(existing_credit)
 
         # If order status becomes delivered, and payment method is credit, post to credit ledger
@@ -352,7 +351,6 @@ def transition_status(order_id: int):
 
             if not existing_credit:
                 order.customer.outstanding_balance += order.total_amount
-                order.customer.opening_balance = order.customer.outstanding_balance
                 settings = _get_settings()
                 credit_days = int(settings.get("credit_days", "30"))
                 

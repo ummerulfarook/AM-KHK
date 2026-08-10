@@ -160,7 +160,6 @@ def record_payment(entry_id: int):
         entry.amount_paid += amount
         if entry.customer:
             entry.customer.outstanding_balance = max(0, entry.customer.outstanding_balance - amount)
-            entry.customer.opening_balance = entry.customer.outstanding_balance
             
         if entry.amount_paid >= entry.amount:
             entry.status = "paid"

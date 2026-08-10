@@ -409,7 +409,6 @@ def clear_customer_dues(cust_id: int):
 
         # 1. Update customer's outstanding balance
         customer.outstanding_balance = max(0, customer.outstanding_balance - amount)
-        customer.opening_balance = customer.outstanding_balance
 
         applied_amount = amount
 
