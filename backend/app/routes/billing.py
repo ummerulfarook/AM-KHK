@@ -242,8 +242,6 @@ def create_sale():
             invoice_to_pay=req.invoice_to_pay
         )
         
-        sale_amt_paid = total if req.payment_method != "credit" else amt_paid
-
         # Write sale
         sale = RetailSale(
             invoice_number=inv_num,
@@ -258,7 +256,7 @@ def create_sale():
             tax=req.tax,
             total=total,
             notes=req.notes,
-            amount_paid=sale_amt_paid,
+            amount_paid=total_received,
             cash_received=cash_received,
             upi_received=upi_received,
             bank_received=bank_received,
@@ -844,7 +842,7 @@ def update_sale(sale_id: int):
             sale.discount = discount
             sale.total = new_total
             sale.payment_method = payment_method
-            sale.amount_paid = new_total if payment_method != "credit" else allocated_amt
+            sale.amount_paid = total_received
 
             if payment_method == "credit" or shortage > 0:
                 ledger = CreditLedger(

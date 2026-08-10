@@ -34,6 +34,7 @@ class CreditLedger(db.Model):
         return self.amount - self.amount_paid
 
     def to_dict(self):
+        from app.models.base import format_iso_datetime
         return {
             "id": self.id, "customerId": self.customer_id,
             "customerName": self.customer.name if self.customer else None,
@@ -42,8 +43,8 @@ class CreditLedger(db.Model):
             "amountPaid": self.amount_paid, "balance": self.balance,
             "dueDate": self.due_date.isoformat() if self.due_date else None,
             "status": self.status,
-            "paidAt": self.paid_at.isoformat() if self.paid_at else None,
-            "createdAt": self.created_at.isoformat(),
+            "paidAt": format_iso_datetime(self.paid_at),
+            "createdAt": format_iso_datetime(self.created_at),
         }
 
 
@@ -69,6 +70,7 @@ class Payment(db.Model):
     recorded_by_user = relationship("User", back_populates="payments")
 
     def to_dict(self):
+        from app.models.base import format_iso_datetime
         return {
             "id": self.id, "creditLedgerId": self.credit_ledger_id,
             "invoiceRef": self.credit_entry.invoice_ref if self.credit_entry else None,
@@ -77,5 +79,5 @@ class Payment(db.Model):
             "bankName": self.bank_name,
             "recordedById": self.recorded_by_id,
             "recordedByName": self.recorded_by_user.name if self.recorded_by_user else None,
-            "notes": self.notes, "recordedAt": self.recorded_at.isoformat(),
+            "notes": self.notes, "recordedAt": format_iso_datetime(self.recorded_at),
         }

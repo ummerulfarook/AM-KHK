@@ -638,7 +638,6 @@ export default function CustomerDetailsPage() {
                           <TableCell align="right">Total Amt</TableCell>
                           <TableCell align="right">Paid Amt</TableCell>
                           <TableCell align="right">Left to Pay</TableCell>
-                          <TableCell>Status</TableCell>
                           <TableCell align="center">Actions</TableCell>
                         </TableRow>
                       </TableHead>
@@ -668,40 +667,6 @@ export default function CustomerDetailsPage() {
                             <TableCell align="right" sx={{ color: tokens.emerald600 }}>{fmtRupees(h.amountPaid)}</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, color: h.balance > 0 ? tokens.red500 : tokens.textPrimary }}>
                               {fmtRupees(h.balance)}
-                            </TableCell>
-                            <TableCell>
-                              {h.paymentMethod !== 'credit' || h.paymentStatus === 'paid' || h.balance === 0 ? (
-                                <Chip
-                                  label="Paid"
-                                  size="small"
-                                  color="success"
-                                  sx={{ height: 20, fontSize: '0.72rem', fontWeight: 700 }}
-                                />
-                              ) : h.amountPaid > 0 && h.balance > 0 ? (
-                                <Chip
-                                  label="Partial"
-                                  size="small"
-                                  sx={{
-                                    height: 20,
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    backgroundColor: alpha(tokens.amber500, 0.12),
-                                    color: tokens.amber500
-                                  }}
-                                />
-                              ) : (
-                                <Chip
-                                  label="Credit"
-                                  size="small"
-                                  sx={{
-                                    height: 20,
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    backgroundColor: alpha(tokens.red500, 0.12),
-                                    color: tokens.red500
-                                  }}
-                                />
-                              )}
                             </TableCell>
                             <TableCell align="center">
                               {h.balance > 0 && canModify && (
@@ -891,7 +856,6 @@ export default function CustomerDetailsPage() {
                 <TableCell align="right">Total Amount</TableCell>
                 <TableCell align="right">Paid Amount</TableCell>
                 <TableCell align="right">Left to Pay</TableCell>
-                <TableCell>Status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -905,7 +869,6 @@ export default function CustomerDetailsPage() {
                   <TableCell align="right" sx={{ fontWeight: 700 }}>{fmtRupees(h.total)}</TableCell>
                   <TableCell align="right" sx={{ color: tokens.emerald600 }}>{fmtRupees(h.amountPaid)}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>{fmtRupees(h.balance)}</TableCell>
-                  <TableCell>{h.balance === 0 ? 'Paid' : h.amountPaid > 0 ? 'Partial' : 'Credit'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

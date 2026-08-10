@@ -43,6 +43,7 @@ class RetailSale(db.Model):
     credit_entries = relationship("CreditLedger", back_populates="sale", cascade="all, delete-orphan")
 
     def to_dict(self):
+        from app.models.base import format_iso_datetime
         return {
             "id": self.id, "invoiceNumber": self.invoice_number,
             "customerId": self.customer_id,
@@ -65,7 +66,8 @@ class RetailSale(db.Model):
             "partner": self.partner,
             "billingCustomerName": self.billing_customer_name,
             "billingCustomerPhone": self.billing_customer_phone,
-            "createdAt": self.created_at.isoformat(),
+            "createdAt": format_iso_datetime(self.created_at),
+            "customerOutstandingBalance": self.customer.outstanding_balance if self.customer else 0,
             "items": [i.to_dict() for i in self.items],
         }
 

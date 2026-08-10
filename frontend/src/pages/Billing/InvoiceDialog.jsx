@@ -205,14 +205,10 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
                   <Typography sx={{ fontSize: '0.8rem', color: alpha('#fff', 0.7) }}>Received</Typography>
                   <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{fmt(sale.amountPaid || 0)}</Typography>
                 </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-                  <Typography sx={{ fontSize: '0.8rem', color: alpha('#fff', 0.7) }}>Bill Left</Typography>
-                  <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{fmt(sale.total - (sale.amountPaid || 0))}</Typography>
-                </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
                   <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: alpha('#fff', 0.9) }}>Total Due</Typography>
                   <Typography sx={{ fontSize: '1.2rem', fontWeight: 700, color: tokens.amber500 }}>
-                    {fmt((sale.previousBalance || 0) + (sale.total - (sale.amountPaid || 0)))}
+                    {fmt(sale.customerOutstandingBalance || 0)}
                   </Typography>
                 </Box>
               </>

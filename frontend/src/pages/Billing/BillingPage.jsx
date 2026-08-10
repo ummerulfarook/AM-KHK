@@ -1175,7 +1175,8 @@ export default function BillingPage() {
                         placeholder="e.g. 5000"
                         size="small"
                         type="number"
-                        inputProps={{ min: 0, step: 0.5 }}
+                        inputProps={{ min: 0, step: 'any' }}
+                        onWheel={(e) => e.target.blur()}
                         value={cashPaid}
                         onChange={e => setCashPaid(e.target.value)}
                         fullWidth
@@ -1213,7 +1214,8 @@ export default function BillingPage() {
                           placeholder="e.g. 1000"
                           size="small"
                           type="number"
-                          inputProps={{ min: 0, step: 0.5 }}
+                          inputProps={{ min: 0, step: 'any' }}
+                          onWheel={(e) => e.target.blur()}
                           value={cashPaid}
                           onChange={e => setCashPaid(e.target.value)}
                           fullWidth
@@ -1245,7 +1247,8 @@ export default function BillingPage() {
                 label="Discount (₹)"
                 size="small"
                 type="number"
-                inputProps={{ min: 0, step: 0.5 }}
+                inputProps={{ min: 0, step: 'any' }}
+                onWheel={(e) => e.target.blur()}
                 value={discount}
                 onChange={e => setDiscount(e.target.value)}
                 InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}

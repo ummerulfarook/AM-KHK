@@ -48,6 +48,7 @@ class WholesaleOrder(db.Model):
     created_by = relationship("User", foreign_keys=[created_by_id])
 
     def to_dict(self):
+        from app.models.base import format_iso_datetime
         return {
             "id": self.id,
             "customerId": self.customer_id,
@@ -61,7 +62,7 @@ class WholesaleOrder(db.Model):
             "upiId": self.upi_id,
             "bankName": self.bank_name,
             "partner": self.partner,
-            "createdAt": self.created_at.isoformat(),
+            "createdAt": format_iso_datetime(self.created_at),
             "items": [i.to_dict() for i in self.items],
         }
 
@@ -127,16 +128,17 @@ class PurchaseOrder(db.Model):
     created_by = relationship("User", foreign_keys=[created_by_id])
 
     def to_dict(self):
+        from app.models.base import format_iso_datetime
         return {
             "id": self.id, "supplierId": self.supplier_id,
             "supplierName": self.supplier.name if self.supplier else None,
-            "expectedDelivery": self.expected_delivery.isoformat() if self.expected_delivery else None,
-            "actualDelivery": self.actual_delivery.isoformat() if self.actual_delivery else None,
+            "expectedDelivery": format_iso_datetime(self.expected_delivery) if self.expected_delivery else None,
+            "actualDelivery": format_iso_datetime(self.actual_delivery) if self.actual_delivery else None,
             "status": self.status, "paymentStatus": self.payment_status,
             "paymentMethod": self.payment_method,
             "amountPaid": self.amount_paid,
             "totalAmount": self.total_amount, "notes": self.notes,
-            "createdAt": self.created_at.isoformat(),
+            "createdAt": format_iso_datetime(self.created_at),
             "items": [i.to_dict() for i in self.items],
         }
 
