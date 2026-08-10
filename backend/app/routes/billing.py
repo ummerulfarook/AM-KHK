@@ -796,7 +796,7 @@ def update_sale(sale_id: int):
                 )
             ).scalars().all()
             for sp in surplus_payments:
-                target_ledger = sp.credit_ledger
+                target_ledger = sp.credit_entry
                 if target_ledger:
                     target_ledger.amount_paid = max(0, target_ledger.amount_paid - sp.amount)
                     target_ledger.status = "due"
