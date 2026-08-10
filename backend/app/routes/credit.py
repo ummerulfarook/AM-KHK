@@ -159,7 +159,7 @@ def record_payment(entry_id: int):
         # 2. Update credit ledger entry and customer outstanding balance
         entry.amount_paid += amount
         if entry.customer:
-            entry.customer.outstanding_balance = max(0, entry.customer.outstanding_balance - amount)
+            entry.customer.outstanding_balance = entry.customer.outstanding_balance - amount
             
         if entry.amount_paid >= entry.amount:
             entry.status = "paid"

@@ -159,16 +159,10 @@ def update_customer(cust_id: int):
     ).scalar_one_or_none()
 
     if ledger_entry:
-        old_ob = customer.opening_balance
-        diff = new_ob - old_ob
         ledger_entry.amount = new_ob
-        if ledger_entry.amount_paid >= new_ob:
-            ledger_entry.status = "paid"
-            ledger_entry.paid_at = datetime.now(timezone.utc)
-        else:
-            ledger_entry.status = "due"
-            ledger_entry.paid_at = None
-        customer.outstanding_balance += diff
+        ledger_entry.amount_paid = 0
+        ledger_entry.status = "due" if new_ob > 0 else "paid"
+        ledger_entry.paid_at = None
     else:
         if new_ob > 0:
             ledger_entry = CreditLedger(
@@ -180,7 +174,6 @@ def update_customer(cust_id: int):
                 status="due"
             )
             db.session.add(ledger_entry)
-            customer.outstanding_balance += new_ob
 
     customer.name = name
     customer.phone = (data.get("phone") or "").strip() or None
@@ -408,7 +401,7 @@ def clear_customer_dues(cust_id: int):
         working_dt = get_working_date()
 
         # 1. Update customer's outstanding balance
-        customer.outstanding_balance = max(0, customer.outstanding_balance - amount)
+        customer.outstanding_balance = customer.outstanding_balance - amount
 
         applied_amount = amount
 

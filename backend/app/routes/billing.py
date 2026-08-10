@@ -47,6 +47,102 @@ def _get_settings() -> dict:
     return {r.key: r.value for r in rows}
 
 
+def allocate_sale_payments(customer, total, total_received, cash_received, upi_received, bank_received, invoice_number, sale_date, invoice_to_pay=None):
+    # This helper function distributes the total payment received following the priority:
+    # 1. Previous Customer Balance (unpaid CreditLedger entries)
+    # 2. Current Invoice
+    # 3. Remaining Advance (does not create Payment records, represented in the customer balance)
+    # Returns (amt_paid_on_sale, shortage_on_sale, surplus_on_sale, current_sale_allocations, cash_received, upi_received, bank_received)
+    
+    remaining_payment = total_received
+    
+    def allocate_from_pools(amount, cash_pool, upi_pool, bank_pool):
+        allocations = []
+        left = amount
+        if cash_pool > 0 and left > 0:
+            alloc = min(left, cash_pool)
+            allocations.append(("cash", alloc))
+            cash_pool -= alloc
+            left -= alloc
+        if upi_pool > 0 and left > 0:
+            alloc = min(left, upi_pool)
+            allocations.append(("upi", alloc))
+            upi_pool -= alloc
+            left -= alloc
+        if bank_pool > 0 and left > 0:
+            alloc = min(left, bank_pool)
+            allocations.append(("bank", alloc))
+            bank_pool -= alloc
+            left -= alloc
+        return allocations, cash_pool, upi_pool, bank_pool
+
+    allocated_to_prev = 0
+    
+    if customer and remaining_payment > 0:
+        # Step 1: Allocate to previous dues first
+        unpaid_entries = []
+        
+        # Check if there is a specific invoice to pay first
+        if invoice_to_pay:
+            specific_entry = db.session.execute(
+                db.select(CreditLedger)
+                .where(CreditLedger.customer_id == customer.id)
+                .where(CreditLedger.invoice_ref == invoice_to_pay)
+                .where(CreditLedger.status != "paid")
+            ).scalar_one_or_none()
+            if specific_entry:
+                unpaid_entries.append(specific_entry)
+        
+        # Get all other unpaid entries ordered by due date
+        stmt = db.select(CreditLedger).where(CreditLedger.customer_id == customer.id).where(CreditLedger.status != "paid")
+        if invoice_to_pay:
+            stmt = stmt.where(CreditLedger.invoice_ref != invoice_to_pay)
+            
+        other_unpaid = db.session.execute(
+            stmt.order_by(CreditLedger.due_date.asc(), CreditLedger.id.asc())
+        ).scalars().all()
+        
+        unpaid_entries.extend(other_unpaid)
+        
+        for entry in unpaid_entries:
+            if remaining_payment <= 0:
+                break
+            rem = entry.amount - entry.amount_paid
+            applied = min(remaining_payment, rem)
+            if applied > 0:
+                allocations, cash_received, upi_received, bank_received = allocate_from_pools(
+                    applied, cash_received, upi_received, bank_received
+                )
+                for method, alloc_amt in allocations:
+                    db.session.add(Payment(
+                        credit_ledger_id=entry.id,
+                        amount=alloc_amt,
+                        method=method,
+                        recorded_by_id=current_user.id,
+                        notes=f"[{method.upper()}-PREV-DUE] Applied from Sale {invoice_number}",
+                        recorded_at=sale_date,
+                    ))
+                entry.amount_paid += applied
+                if entry.amount_paid >= entry.amount:
+                    entry.status = "paid"
+                    entry.paid_at = sale_date
+                remaining_payment -= applied
+                allocated_to_prev += applied
+
+    # Step 2: Settle the current invoice
+    amt_paid = min(remaining_payment, total)
+    shortage = total - amt_paid
+    surplus = remaining_payment - amt_paid
+    
+    current_sale_allocations = []
+    if amt_paid > 0:
+        current_sale_allocations, cash_received, upi_received, bank_received = allocate_from_pools(
+            amt_paid, cash_received, upi_received, bank_received
+        )
+        
+    return amt_paid, shortage, surplus, current_sale_allocations, cash_received, upi_received, bank_received
+
+
 def _next_invoice_number(settings: dict, custom_date: datetime | None = None) -> str:
     """Generate invoice number and bump the sequence."""
     prefix = settings.get("invoice_prefix", "INV")
@@ -133,8 +229,20 @@ def create_sale():
                 pass
 
         total_received = cash_received + upi_received + bank_received
-        amt_paid = min(total_received, total)
-        shortage = total - total_received
+
+        amt_paid, shortage, surplus, current_sale_allocations, cash_rem, upi_rem, bank_rem = allocate_sale_payments(
+            customer=customer,
+            total=total,
+            total_received=total_received,
+            cash_received=cash_received,
+            upi_received=upi_received,
+            bank_received=bank_received,
+            invoice_number=inv_num,
+            sale_date=sale_date,
+            invoice_to_pay=req.invoice_to_pay
+        )
+        
+        sale_amt_paid = total if req.payment_method != "credit" else amt_paid
 
         # Write sale
         sale = RetailSale(
@@ -150,7 +258,7 @@ def create_sale():
             tax=req.tax,
             total=total,
             notes=req.notes,
-            amount_paid=amt_paid,
+            amount_paid=sale_amt_paid,
             cash_received=cash_received,
             upi_received=upi_received,
             bank_received=bank_received,
@@ -180,7 +288,7 @@ def create_sale():
 
         # Update customer dues balance
         if customer:
-            customer.outstanding_balance += shortage
+            customer.outstanding_balance = customer.outstanding_balance + total - total_received
 
         # If it's a credit sale, or if there's any unpaid shortage left on a sale
         if customer and (req.payment_method == "credit" or shortage > 0):
@@ -188,7 +296,6 @@ def create_sale():
             due = sale_date.date() + timedelta(days=credit_days)
             
             # Create a CreditLedger entry representing the transaction's credit component
-            # If the user paid downpayment, it reduces the initial balance
             ledger = CreditLedger(
                 customer_id=req.customer_id,
                 sale_id=sale.id,
@@ -203,104 +310,19 @@ def create_sale():
             db.session.flush()
             
             # Record individual downpayment entries in the Payment table
-            if cash_received > 0:
-                applied = min(cash_received, total)
+            for method, alloc_amt in current_sale_allocations:
                 db.session.add(Payment(
                     credit_ledger_id=ledger.id,
-                    amount=applied,
-                    method="cash",
+                    amount=alloc_amt,
+                    method=method,
                     recorded_by_id=current_user.id,
-                    notes=f"[POS Downpayment] Cash paid during checkout",
+                    notes=f"[POS Downpayment] {method.capitalize()} paid during checkout",
                     recorded_at=sale_date,
                 ))
-            if upi_received > 0:
-                applied = min(upi_received, total - cash_received)
-                if applied > 0:
-                    db.session.add(Payment(
-                        credit_ledger_id=ledger.id,
-                        amount=applied,
-                        method="upi",
-                        recorded_by_id=current_user.id,
-                        notes=f"[POS Downpayment] UPI paid during checkout",
-                        recorded_at=sale_date,
-                    ))
-            if bank_received > 0:
-                applied = min(bank_received, total - cash_received - upi_received)
-                if applied > 0:
-                    db.session.add(Payment(
-                        credit_ledger_id=ledger.id,
-                        amount=applied,
-                        method="bank",
-                        recorded_by_id=current_user.id,
-                        notes=f"[POS Downpayment] Bank paid during checkout",
-                        recorded_at=sale_date,
-                    ))
 
-            sale.notes = f"{sale.notes or ''}\nSplit/Credit checkout. Total: Rs{total/100:.2f} | Paid: Rs{amt_paid/100:.2f} | Remaining Dues: Rs{max(0, shortage)/100:.2f}".strip()
+            sale.notes = f"{sale.notes or ''}\nPrevious Dues Priority Checkout. Total: Rs{total/100:.2f} | Paid: Rs{total_received/100:.2f} | Remaining Dues: Rs{max(0, shortage)/100:.2f}".strip()
         else:
             sale.notes = f"{sale.notes or ''}\nPaid: Rs{total_received/100:.2f} (exact payment)".strip()
-
-        # Handle surplus (if paid amount is greater than bill total)
-        surplus = total_received - total
-        if surplus > 0 and customer:
-            applied_amount = surplus
-            
-            # Check if specific invoice to pay
-            if req.invoice_to_pay:
-                ledger_entry = db.session.execute(
-                    db.select(CreditLedger)
-                    .where(CreditLedger.customer_id == customer.id)
-                    .where(CreditLedger.invoice_ref == req.invoice_to_pay)
-                    .where(CreditLedger.status != "paid")
-                ).scalar_one_or_none()
-                if ledger_entry:
-                    rem = ledger_entry.amount - ledger_entry.amount_paid
-                    applied = min(applied_amount, rem)
-                    method = "cash" if cash_received > total else "upi" if upi_received > 0 else "bank"
-                    p = Payment(
-                        credit_ledger_id=ledger_entry.id,
-                        amount=applied,
-                        method=method,
-                        recorded_by_id=current_user.id,
-                        notes=f"[{method.upper()}-SURPLUS] Applied from Sale {inv_num}",
-                        recorded_at=sale_date,
-                    )
-                    db.session.add(p)
-                    ledger_entry.amount_paid += applied
-                    if ledger_entry.amount_paid >= ledger_entry.amount:
-                        ledger_entry.status = "paid"
-                        ledger_entry.paid_at = sale_date
-                    applied_amount -= applied
-                    sale.notes = f"{sale.notes or ''}\n[Prev Bill Pay] Paid Rs{applied/100:.2f} to {req.invoice_to_pay}".strip()
-
-            # Apply remaining surplus to oldest unpaid entries
-            if applied_amount > 0:
-                unpaid_entries = db.session.execute(
-                    db.select(CreditLedger)
-                    .where(CreditLedger.customer_id == customer.id)
-                    .where(CreditLedger.status != "paid")
-                    .order_by(CreditLedger.due_date.asc())
-                ).scalars().all()
-                for entry in unpaid_entries:
-                    if applied_amount <= 0:
-                        break
-                    rem = entry.amount - entry.amount_paid
-                    applied = min(applied_amount, rem)
-                    method = "cash" if cash_received > total else "upi" if upi_received > 0 else "bank"
-                    p = Payment(
-                        credit_ledger_id=entry.id,
-                        amount=applied,
-                        method=method,
-                        recorded_by_id=current_user.id,
-                        notes=f"[{method.upper()}-SURPLUS] Applied from Sale {inv_num}",
-                        recorded_at=sale_date,
-                    )
-                    db.session.add(p)
-                    entry.amount_paid += applied
-                    if entry.amount_paid >= entry.amount:
-                        entry.status = "paid"
-                        entry.paid_at = sale_date
-                    applied_amount -= applied
 
         db.session.commit()
         db.session.refresh(sale)
@@ -598,7 +620,7 @@ def record_sale_return():
                 return jsonify({"error": "Customer not found"}), 404
 
             # Update customer balance
-            customer.outstanding_balance = max(0, customer.outstanding_balance - refund_value)
+            customer.outstanding_balance = customer.outstanding_balance - refund_value
 
             # If return is linked to an invoice, pay off that invoice's credit entry first
             applied_amount = refund_value
@@ -753,15 +775,39 @@ def update_sale(sale_id: int):
         customer = sale.customer
         if customer:
             old_net_due_change = old_total - sale.amount_paid
-            customer.outstanding_balance = max(0, customer.outstanding_balance - old_net_due_change)
+            customer.outstanding_balance = customer.outstanding_balance - old_net_due_change
 
-            # Delete old credit ledger entries and payment entries
+            # Delete old credit ledger entries and payment entries of this sale
             for ledger in list(sale.credit_entries):
                 db.session.execute(
                     db.delete(Payment).where(Payment.credit_ledger_id == ledger.id)
                 )
             sale.credit_entries.clear()
             db.session.flush()
+
+            # Find and revert any surplus payments applied from this sale to other credit ledger entries
+            from sqlalchemy import or_
+            pattern = f"%Applied from Sale {sale.invoice_number}"
+            pattern_edit = f"%Applied from edited Sale {sale.invoice_number}"
+            surplus_payments = db.session.execute(
+                db.select(Payment).where(
+                    or_(
+                        Payment.notes.like(pattern),
+                        Payment.notes.like(pattern_edit)
+                    )
+                )
+            ).scalars().all()
+            for sp in surplus_payments:
+                target_ledger = sp.credit_ledger
+                if target_ledger:
+                    target_ledger.amount_paid = max(0, target_ledger.amount_paid - sp.amount)
+                    target_ledger.status = "due"
+                    target_ledger.paid_at = None
+                db.session.delete(sp)
+            db.session.flush()
+
+            # Set sale previous_balance to the reverted outstanding balance
+            sale.previous_balance = customer.outstanding_balance
 
             # Now recalculate and apply new dues change
             amt_paid = 0
@@ -772,81 +818,56 @@ def update_sale(sale_id: int):
             elif payment_method == "credit":
                 amt_paid = cash_paid if cash_paid is not None else 0
 
+            total_received = amt_paid
+            cash_received = total_received if payment_method == "cash" else 0
+            upi_received = total_received if payment_method == "upi" else 0
+            bank_received = total_received if payment_method == "bank" else 0
+            if payment_method == "credit" and cash_paid is not None:
+                cash_received = cash_paid
+
+            allocated_amt, shortage, surplus, current_sale_allocations, cash_rem, upi_rem, bank_rem = allocate_sale_payments(
+                customer=customer,
+                total=new_total,
+                total_received=total_received,
+                cash_received=cash_received,
+                upi_received=upi_received,
+                bank_received=bank_received,
+                invoice_number=sale.invoice_number,
+                sale_date=sale.created_at,
+            )
+
+            # Update customer dues balance
+            customer.outstanding_balance = customer.outstanding_balance + new_total - total_received
+
             # Update sale totals
             sale.subtotal = subtotal
             sale.discount = discount
             sale.total = new_total
             sale.payment_method = payment_method
-            sale.amount_paid = amt_paid
-            
-            # Apply new dues change
-            if payment_method in ("cash", "upi", "bank"):
-                if amt_paid < new_total:
-                    shortage = new_total - amt_paid
-                    customer.outstanding_balance += shortage
-                    db.session.add(CreditLedger(
-                        customer_id=customer.id,
-                        sale_id=sale.id,
-                        invoice_ref=sale.invoice_number,
-                        amount=shortage,
-                        amount_paid=0,
-                        due_date=date.today() + timedelta(days=30),
-                        status="due"
-                    ))
-                elif amt_paid > new_total:
-                    surplus = amt_paid - new_total
-                    customer.outstanding_balance = max(0, customer.outstanding_balance - surplus)
-                    applied_amount = surplus
-                    unpaid_entries = db.session.execute(
-                        db.select(CreditLedger)
-                        .where(CreditLedger.customer_id == customer.id)
-                        .where(CreditLedger.status != "paid")
-                        .order_by(CreditLedger.due_date.asc())
-                    ).scalars().all()
-                    for entry in unpaid_entries:
-                        if applied_amount <= 0:
-                            break
-                        rem = entry.amount - entry.amount_paid
-                        applied = min(applied_amount, rem)
-                        p = Payment(
-                            credit_ledger_id=entry.id,
-                            amount=applied,
-                            method=payment_method,
-                            recorded_by_id=current_user.id,
-                            notes=f"[{payment_method.upper()}-SURPLUS] Applied from edited Sale {sale.invoice_number}"
-                        )
-                        db.session.add(p)
-                        entry.amount_paid += applied
-                        if entry.amount_paid >= entry.amount:
-                            entry.status = "paid"
-                            entry.paid_at = datetime.now(timezone.utc)
-                        applied_amount -= applied
+            sale.amount_paid = new_total if payment_method != "credit" else allocated_amt
 
-            elif payment_method == "credit":
-                paid_now = min(amt_paid, new_total)
-                credit_amount = new_total - paid_now
-                customer.outstanding_balance += credit_amount
-                
+            if payment_method == "credit" or shortage > 0:
                 ledger = CreditLedger(
                     customer_id=customer.id,
                     sale_id=sale.id,
                     invoice_ref=sale.invoice_number,
                     amount=new_total,
-                    amount_paid=paid_now,
+                    amount_paid=allocated_amt,
                     due_date=date.today() + timedelta(days=30),
-                    status="paid" if paid_now >= new_total else "due_soon" if paid_now > 0 else "due",
+                    status="paid" if allocated_amt >= new_total else "due_soon" if allocated_amt > 0 else "due",
                 )
                 db.session.add(ledger)
                 db.session.flush()
-                if paid_now > 0:
-                    p = Payment(
+                
+                for method, alloc_amt in current_sale_allocations:
+                    db.session.add(Payment(
                         credit_ledger_id=ledger.id,
-                        amount=paid_now,
-                        method="cash",
+                        amount=alloc_amt,
+                        method=method,
                         recorded_by_id=current_user.id,
-                        notes=f"[POS Credit Downpayment] Paid Rs{paid_now/100:.2f} during edited checkout"
-                    )
-                    db.session.add(p)
+                        notes=f"[POS Downpayment] {method.capitalize()} paid during edited checkout",
+                        recorded_at=sale.created_at,
+                    ))
             # (blank space or comment to maintain alignment if needed)
             pass
 
@@ -891,7 +912,7 @@ def delete_sale(sale_id: int):
             # the net increase was: sale.total - sale.amount_paid.
             # So we subtract (sale.total - sale.amount_paid) from customer's outstanding_balance!
             net_sale_effect = sale.total - sale.amount_paid
-            sale.customer.outstanding_balance = max(0, sale.customer.outstanding_balance - net_sale_effect)
+            sale.customer.outstanding_balance = sale.customer.outstanding_balance - net_sale_effect
             
             # 3. Delete associated payments first to avoid foreign key violations
             # First fetch ledger IDs

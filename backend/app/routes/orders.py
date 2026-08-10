@@ -32,9 +32,9 @@ def _rupees_to_paise(val) -> int:
         return 0
 
 
-# Helper to wrap/mock WholesaleOrder like RetailSale for invoice rendering
 class WholesaleOrderInvoiceWrapper:
     def __init__(self, order: WholesaleOrder):
+        self._order = order
         self.invoice_number = f"WO-{order.id:04d}"
         self.created_at = order.created_at
         self.customer = order.customer
@@ -46,6 +46,19 @@ class WholesaleOrderInvoiceWrapper:
         self.payment_method = order.payment_method or "credit"
         self.notes = order.notes
         self.credit_entries = [] # Placeholder if needed
+
+    @property
+    def previous_balance(self):
+        if not self.customer:
+            return 0
+        if self._order.status == "delivered":
+            return self._order.customer.outstanding_balance - self.total
+        else:
+            return self._order.customer.outstanding_balance
+
+    @property
+    def amount_paid(self):
+        return 0
 
 
 @orders_bp.route("/", methods=["GET"])
@@ -339,7 +352,7 @@ def transition_status(order_id: int):
             ).scalar_one_or_none()
             if existing_credit:
                 unpaid = existing_credit.amount - existing_credit.amount_paid
-                order.customer.outstanding_balance = max(0, order.customer.outstanding_balance - unpaid)
+                order.customer.outstanding_balance = order.customer.outstanding_balance - unpaid
                 db.session.delete(existing_credit)
 
         # If order status becomes delivered, and payment method is credit, post to credit ledger

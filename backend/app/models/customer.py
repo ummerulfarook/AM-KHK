@@ -69,3 +69,31 @@ class CustomerStore(db.Model):
             "isActive": bool(self.is_active),
             "createdAt": self.created_at.isoformat(),
         }
+
+
+import threading
+from sqlalchemy import event
+
+_local = threading.local()
+
+@event.listens_for(Customer.opening_balance, 'set')
+def receive_opening_balance_set(target, value, oldvalue, initiator):
+    if getattr(_local, 'in_sync', False):
+        return
+    _local.in_sync = True
+    try:
+        if target.outstanding_balance != value:
+            target.outstanding_balance = value
+    finally:
+        _local.in_sync = False
+
+@event.listens_for(Customer.outstanding_balance, 'set')
+def receive_outstanding_balance_set(target, value, oldvalue, initiator):
+    if getattr(_local, 'in_sync', False):
+        return
+    _local.in_sync = True
+    try:
+        if target.opening_balance != value:
+            target.opening_balance = value
+    finally:
+        _local.in_sync = False
