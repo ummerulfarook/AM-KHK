@@ -6,7 +6,7 @@ import {
   IconButton, LinearProgress, Tab, Tabs, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography, alpha, Chip, Button, Stack,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl,
-  InputLabel, Select, MenuItem, Paper, Snackbar
+  InputLabel, Select, MenuItem, Paper, Snackbar, Tooltip
 } from '@mui/material'
 import { useAuth } from '../../contexts/AuthContext'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
@@ -17,9 +17,11 @@ import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
 import { customersApi } from '../../api/customersApi'
 import { settingsApi } from '../../api/settingsApi'
 import { inventoryApi } from '../../api/inventoryApi'
+import { billingApi } from '../../api/billingApi'
 import { tokens } from '../../theme/theme'
 import StatusBadge from '../../components/common/StatusBadge'
 import StatCard from '../../components/common/StatCard'
@@ -184,6 +186,27 @@ export default function CustomerDetailsPage() {
     setPayAmount((balance / 100).toString())
     setPayInvoiceRef(invoiceRef)
     setPayDialogOpen(true)
+  }
+
+  const handleDownloadPDF = async (saleId, invoiceNumber) => {
+    try {
+      await billingApi.downloadInvoice(saleId, invoiceNumber)
+      setToast({ open: true, msg: 'Invoice PDF downloaded successfully!', severity: 'success' })
+    } catch (err) {
+      console.error(err)
+      setToast({ open: true, msg: 'Failed to download invoice PDF', severity: 'error' })
+    }
+  }
+
+  const handleThermalPrint = async (saleId) => {
+    try {
+      await billingApi.printReceipt(saleId)
+      setToast({ open: true, msg: 'Receipt sent to printer', severity: 'success' })
+    } catch (err) {
+      console.error(err)
+      const errMsg = err?.response?.data?.error || 'Thermal printer offline or not connected.'
+      setToast({ open: true, msg: `Print Failed: ${errMsg}`, severity: 'error' })
+    }
   }
 
   if (isLoading) {
@@ -636,8 +659,6 @@ export default function CustomerDetailsPage() {
                           <TableCell>Store</TableCell>
                           <TableCell>Type</TableCell>
                           <TableCell align="right">Total Amt</TableCell>
-                          <TableCell align="right">Paid Amt</TableCell>
-                          <TableCell align="right">Left to Pay</TableCell>
                           <TableCell align="center">Actions</TableCell>
                         </TableRow>
                       </TableHead>
@@ -664,21 +685,26 @@ export default function CustomerDetailsPage() {
                               />
                             </TableCell>
                             <TableCell align="right" sx={{ fontWeight: 600 }}>{fmtRupees(h.total)}</TableCell>
-                            <TableCell align="right" sx={{ color: tokens.emerald600 }}>{fmtRupees(h.amountPaid)}</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 700, color: h.balance > 0 ? tokens.red500 : tokens.textPrimary }}>
-                              {fmtRupees(h.balance)}
-                            </TableCell>
-                            <TableCell align="center">
-                              {h.balance > 0 && canModify && (
-                                <Button
+                            <TableCell align="center" style={{ whiteSpace: 'nowrap' }}>
+                              <Tooltip title="Download PDF">
+                                <IconButton
                                   size="small"
-                                  variant="outlined"
-                                  onClick={() => handleOpenPayForInvoice(h.invoiceNumber, h.balance)}
-                                  sx={{ borderRadius: '6px', textTransform: 'none', py: 0.25 }}
+                                  color="primary"
+                                  onClick={() => handleDownloadPDF(h.id, h.invoiceNumber)}
                                 >
-                                  Pay
-                                </Button>
-                              )}
+                                  <PictureAsPdfRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Thermal Print">
+                                <IconButton
+                                  size="small"
+                                  color="success"
+                                  onClick={() => handleThermalPrint(h.id)}
+                                  sx={{ ml: 0.5 }}
+                                >
+                                  <PrintRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -854,8 +880,6 @@ export default function CustomerDetailsPage() {
                 <TableCell>Invoice #</TableCell>
                 <TableCell>Type</TableCell>
                 <TableCell align="right">Total Amount</TableCell>
-                <TableCell align="right">Paid Amount</TableCell>
-                <TableCell align="right">Left to Pay</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -867,8 +891,6 @@ export default function CustomerDetailsPage() {
                   <TableCell sx={{ fontWeight: 600 }}>{h.invoiceNumber}</TableCell>
                   <TableCell>{(h.type || '').toUpperCase()}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>{fmtRupees(h.total)}</TableCell>
-                  <TableCell align="right" sx={{ color: tokens.emerald600 }}>{fmtRupees(h.amountPaid)}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>{fmtRupees(h.balance)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
