@@ -261,8 +261,6 @@ def _write_receipt(p, sale):
     if sale.customer:
         p.text(f"Prev Due  : Rs{sale.previous_balance/100:.2f}\n")
         p.text(f"Received  : Rs{sale.amount_paid/100:.2f}\n")
-        bill_left = max(0, sale.total - sale.amount_paid)
-        p.text(f"Bill Left : Rs{bill_left/100:.2f}\n")
         p.text(f"Total Due : Rs{sale.customer.outstanding_balance/100:.2f}\n")
 
     p.text("-" * 32 + "\n")

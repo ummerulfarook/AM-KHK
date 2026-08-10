@@ -602,7 +602,13 @@ export default function SalesHistoryPage() {
                   <Select
                     label="Payment Method"
                     value={editPaymentMethod}
-                    onChange={e => setEditPaymentMethod(e.target.value)}
+                    onChange={e => {
+                      const newMethod = e.target.value
+                      setEditPaymentMethod(newMethod)
+                      if (newMethod === 'credit') {
+                        setEditCashPaid('')
+                      }
+                    }}
                   >
                     <MenuItem value="cash">Cash</MenuItem>
                     <MenuItem value="upi">UPI</MenuItem>

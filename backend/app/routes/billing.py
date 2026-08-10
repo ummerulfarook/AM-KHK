@@ -181,7 +181,6 @@ def create_sale():
         # Update customer dues balance
         if customer:
             customer.outstanding_balance += shortage
-            customer.opening_balance = customer.outstanding_balance
 
         # If it's a credit sale, or if there's any unpaid shortage left on a sale
         if customer and (req.payment_method == "credit" or shortage > 0):
@@ -600,7 +599,6 @@ def record_sale_return():
 
             # Update customer balance
             customer.outstanding_balance = max(0, customer.outstanding_balance - refund_value)
-            customer.opening_balance = customer.outstanding_balance
 
             # If return is linked to an invoice, pay off that invoice's credit entry first
             applied_amount = refund_value
@@ -849,8 +847,8 @@ def update_sale(sale_id: int):
                         notes=f"[POS Credit Downpayment] Paid Rs{paid_now/100:.2f} during edited checkout"
                     )
                     db.session.add(p)
-            
-            customer.opening_balance = customer.outstanding_balance
+            # (blank space or comment to maintain alignment if needed)
+            pass
 
         else:
             # Non-registered customer
@@ -894,7 +892,6 @@ def delete_sale(sale_id: int):
             # So we subtract (sale.total - sale.amount_paid) from customer's outstanding_balance!
             net_sale_effect = sale.total - sale.amount_paid
             sale.customer.outstanding_balance = max(0, sale.customer.outstanding_balance - net_sale_effect)
-            sale.customer.opening_balance = sale.customer.outstanding_balance
             
             # 3. Delete associated payments first to avoid foreign key violations
             # First fetch ledger IDs

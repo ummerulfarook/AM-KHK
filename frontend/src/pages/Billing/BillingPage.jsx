@@ -429,6 +429,7 @@ export default function BillingPage() {
     setAdHocPhone('')
     setCustomDate('')
     setCashPaid('')
+    setStoreId('')
     setSplitMode(false)
     setUpiPaid('')
     setBankPaid('')
@@ -438,6 +439,7 @@ export default function BillingPage() {
     // Explicitly clean up localStorage session keys
     localStorage.removeItem('pos_cart')
     localStorage.removeItem('pos_customer')
+    localStorage.removeItem('pos_store_id')
     localStorage.removeItem('pos_payment_method')
     localStorage.removeItem('pos_discount')
     localStorage.removeItem('pos_credit_days')
@@ -470,6 +472,7 @@ export default function BillingPage() {
       qc.invalidateQueries(['inventory'])
       qc.invalidateQueries(['inventoryStats'])
       setInvoiceDialogSale(data.data)
+      clearCart()
     },
     onError: (err) => {
       showToast(err?.response?.data?.error || 'Failed to complete sale', 'error')

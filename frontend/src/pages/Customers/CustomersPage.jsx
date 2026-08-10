@@ -452,7 +452,6 @@ export default function CustomersPage() {
                 onChange={(e) => setOpeningBalance(e.target.value)}
                 fullWidth
                 size="small"
-                disabled={Boolean(editingCustomer)} // Read-only on edit if desired, or allow editing with delta calculations
                 InputProps={{
                   startAdornment: <Typography sx={{ mr: 1, color: tokens.textSecondary }}>₹</Typography>
                 }}
