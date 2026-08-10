@@ -39,7 +39,7 @@ def seed():
             ]
             db.session.add_all(users)
             db.session.flush()
-            print("✓ Users seeded")
+            print("OK: Users seeded")
         else:
             print("- Users already exist, skipping")
 
@@ -51,7 +51,7 @@ def seed():
                 phone="0484-2345678",
             )
             db.session.add(branch)
-            print("✓ Branch seeded")
+            print("OK: Branch seeded")
 
         # ── Categories ─────────────────────────────────────────────────────
         category_data = [
@@ -76,7 +76,7 @@ def seed():
                 cat_map[cat_name] = cat
             else:
                 cat_map[cat_name] = existing
-        print("✓ Categories seeded")
+        print("OK: Categories seeded")
 
         # ── Suppliers ──────────────────────────────────────────────────────
         supplier_data = [
@@ -97,7 +97,7 @@ def seed():
                 supplier_map[s_name] = s
             else:
                 supplier_map[s_name] = existing
-        print("✓ Suppliers seeded")
+        print("OK: Suppliers seeded")
 
         # ── Products ───────────────────────────────────────────────────────
         # (name, category, unit, buy_INR, sell_INR, stock_qty, low_threshold, supplier_name, icon_key)
@@ -136,7 +136,7 @@ def seed():
                     is_active=True,
                 )
                 db.session.add(product)
-        print("✓ Products seeded")
+        print("OK: Products seeded")
 
         # ── Customers ──────────────────────────────────────────────────────
         customer_data = [
@@ -155,7 +155,7 @@ def seed():
                     name=c_name, phone=phone, address=address,
                     type=c_type, credit_limit=credit_limit,
                 ))
-        print("✓ Customers seeded")
+        print("OK: Customers seeded")
 
         # ── Settings ───────────────────────────────────────────────────────
         default_settings = [
@@ -177,16 +177,16 @@ def seed():
             ).scalar_one_or_none()
             if not existing:
                 db.session.add(Setting(key=key, value=value, description=description))
-        print("✓ Settings seeded")
+        print("OK: Settings seeded")
 
         db.session.commit()
-        print("\n🌿 Database seeded successfully!")
+        print("\nDatabase seeded successfully!")
         print("   Login credentials:")
         print("     admin      / admin123   (owner)")
         print("     manager    / manager123 (manager)")
         print("     accountant / account123 (accountant)")
         print("     cashier1   / cashier123 (cashier)")
-        print("\n   ⚠️  Change the admin password after first login!")
+        print("\n   Warning: Change the admin password after first login!")
 
 
 if __name__ == "__main__":
