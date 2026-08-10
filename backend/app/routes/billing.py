@@ -34,6 +34,13 @@ billing_bp = Blueprint("billing", __name__, url_prefix="/api/billing")
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+def _rupees_to_paise(val) -> int:
+    try:
+        return int(Decimal(str(val)) * 100)
+    except Exception:
+        return 0
+
+
 def _get_settings() -> dict:
     """Fetch all settings as a plain dict."""
     rows = db.session.execute(db.select(Setting)).scalars().all()
