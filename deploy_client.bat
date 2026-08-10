@@ -26,8 +26,8 @@ SET PLAYWRIGHT_BROWSERS_PATH=C:\ms-playwright
 
 echo.
 echo [STEP 1] Pulling latest code from GitHub...
-git fetch origin feature/sales-report-boxes-printer
-git reset --hard origin/feature/sales-report-boxes-printer
+git fetch origin feature/customer-substores-sales-reports-final
+git reset --hard origin/feature/customer-substores-sales-reports-final
 if %errorlevel% neq 0 (
     echo ERROR: git reset failed.
     pause
