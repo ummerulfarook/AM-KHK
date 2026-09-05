@@ -293,10 +293,15 @@ def create_sale():
         settings = _get_settings()
         inv_num = _next_invoice_number(settings, custom_date=sale_date)
 
-        # Compute totals — standalone discount + return total both reduce the bill
+        # Compute totals — standalone discount on new items; returns apply to customer balance
         subtotal = sum(i.subtotal for i in req.items)
-        total_discount = req.total_discount  # discount + returns
-        total = subtotal - total_discount + req.tax
+        standalone_discount = req.discount
+        return_total = req.return_total
+
+        if customer:
+            total = max(0, subtotal - standalone_discount + req.tax)
+        else:
+            total = max(0, subtotal - standalone_discount - return_total + req.tax)
 
         # Determine previous balance
         prev_bal = customer.outstanding_balance if customer else 0
@@ -363,7 +368,7 @@ def create_sale():
             upi_id=req.upi_id,
             bank_name=req.bank_name,
             subtotal=subtotal,
-            discount=total_discount,   # stored as combined discount+returns total
+            discount=standalone_discount,   # stored as standalone discount (returns separate)
             tax=req.tax,
             total=total,
             notes=req.notes,
@@ -396,9 +401,9 @@ def create_sale():
             p.current_stock = round(p.current_stock - item_req.quantity, 4)
             p.selling_price = item_req.unit_price
 
-        # Update customer dues balance
+        # Update customer dues balance: deduct return credit & add net new bill minus payments
         if customer:
-            customer.outstanding_balance = customer.outstanding_balance + total - total_received
+            customer.outstanding_balance = customer.outstanding_balance - return_total + total - total_received
 
         # If it's a credit sale, or if there's any unpaid shortage left on a sale
         if customer and (req.payment_method == "credit" or shortage > 0):
@@ -480,11 +485,10 @@ def create_sale():
                         original_invoice_ref=inv_ref,
                     ))
 
-                # If linked to an original invoice and customer is set, credit the ledger
-                if inv_ref and original_sale and customer:
-                    customer.outstanding_balance = customer.outstanding_balance - grp_total
+                # Apply return credit to customer credit ledgers
+                if customer and grp_total > 0:
                     _process_return_line_credit(
-                        return_line_req=type('R', (), {'label': f'Return for {inv_ref}'})(),
+                        return_line_req=type('R', (), {'label': f'Return for {inv_ref or "cart"}'})(),
                         product=None,
                         sale=original_sale,
                         quantity=sum(r.qty for r in lines),
@@ -1073,24 +1077,23 @@ def record_sale_return():
             existing_deductions.extend(new_deductions_entries)
             sale.deductions = _json.dumps(existing_deductions)
 
-            # Update discount and total on sale
-            sale.discount = (sale.discount or 0) + total_refund_value
-            sale.total = max(0, sale.subtotal - sale.discount)
+            # Store returned items in deductions JSON for invoice history and traceability
+            # Note: Original invoice total remains preserved as originally billed
 
-        # 4. Handle Customer Dues & Credit Ledger updates
+        # 4. Handle Customer Dues & Credit Ledger updates (apply return value to customer outstanding balance)
         if customer:
-            if refund_method == "credit" or (sale and sale.payment_method == "credit"):
-                customer.outstanding_balance = customer.outstanding_balance - total_refund_value
+            customer.outstanding_balance = customer.outstanding_balance - total_refund_value
 
-            if sale and sale.payment_method == "credit":
-                ledger = db.session.execute(
-                    db.select(CreditLedger).where(CreditLedger.sale_id == sale.id)
-                ).scalars().first()
-                if ledger:
-                    ledger.amount = max(0, ledger.amount - total_refund_value)
-                    if ledger.amount <= ledger.amount_paid:
-                        ledger.status = "paid"
-                        ledger.paid_at = sale_date
+            _process_return_line_credit(
+                return_line_req=type('R', (), {'label': f'Return {ret_num}'})(),
+                product=None,
+                sale=sale,
+                quantity=sum(v["quantity"] for v in validated_items),
+                refund_value=total_refund_value,
+                customer=customer,
+                current_sale_inv_num=invoice_number or ret_num,
+                sale_date=sale_date,
+            )
 
         db.session.commit()
 

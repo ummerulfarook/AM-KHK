@@ -85,8 +85,8 @@ class CreateSaleRequest:
 
     @property
     def total_discount(self) -> int:
-        """Combined standalone discount + returns total."""
-        return self.discount + self.return_total
+        """Standalone discount in paise."""
+        return self.discount
 
     @classmethod
     def from_json(cls, data: dict) -> "CreateSaleRequest":

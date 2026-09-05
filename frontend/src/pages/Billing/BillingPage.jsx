@@ -535,7 +535,12 @@ export default function BillingPage() {
     [deductions]
   )
   const discountPaise = Math.round((parseFloat(discount) || 0) * 100)
-  const total = Math.max(0, subtotal - deductionTotal - discountPaise)
+  const total = useMemo(() => {
+    if (customer) {
+      return Math.max(0, subtotal - discountPaise)
+    }
+    return Math.max(0, subtotal - deductionTotal - discountPaise)
+  }, [customer, subtotal, discountPaise, deductionTotal])
 
   // ── Checkout mutation ─────────────────────────────────────────────────────
   const createSaleMutation = useMutation({
@@ -1888,15 +1893,9 @@ export default function BillingPage() {
                 }}
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-                  <Typography sx={{ fontSize: '0.85rem', color: tokens.textSecondary }}>Subtotal</Typography>
+                  <Typography sx={{ fontSize: '0.85rem', color: tokens.textSecondary }}>Subtotal (Items)</Typography>
                   <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>{fmt(subtotal)}</Typography>
                 </Box>
-                {deductionTotal > 0 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-                    <Typography sx={{ fontSize: '0.85rem', color: tokens.red500 }}>Returns ({deductions.length} line{deductions.length > 1 ? 's' : ''})</Typography>
-                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: tokens.red500 }}>−{fmt(deductionTotal)}</Typography>
-                  </Box>
-                )}
                 {discountPaise > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
                     <Typography sx={{ fontSize: '0.85rem', color: tokens.amber500 }}>Discount</Typography>
@@ -1905,11 +1904,29 @@ export default function BillingPage() {
                 )}
                 <Divider sx={{ my: 1, borderColor: tokens.border }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography sx={{ fontWeight: 700, fontSize: '1rem' }}>Total</Typography>
+                  <Typography sx={{ fontWeight: 700, fontSize: '1rem' }}>Current Bill Total</Typography>
                   <Typography sx={{ fontWeight: 800, fontSize: '1.4rem', color: tokens.emerald600 }}>
                     {fmt(total)}
                   </Typography>
                 </Box>
+                {deductionTotal > 0 && (
+                  <Box sx={{ mt: 1.5, p: 1, background: alpha(tokens.red500, 0.08), borderRadius: '8px', border: `1px solid ${alpha(tokens.red500, 0.2)}` }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: tokens.red500 }}>
+                        ↩ Return Credit ({deductions.length} item{deductions.length > 1 ? 's' : ''})
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, color: tokens.red500 }}>
+                        −{fmt(deductionTotal)}
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary, mt: 0.5 }}>
+                      {customer
+                        ? `✨ This ₹${(deductionTotal / 100).toFixed(2)} return credit will be deducted directly from ${customer.name}'s outstanding balance.`
+                        : `Applied as deduction on walk-in net bill.`
+                      }
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               <Box sx={{ flex: 1 }} />
