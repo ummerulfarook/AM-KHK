@@ -67,10 +67,10 @@ def _next_return_number(settings: dict, sale_date: datetime) -> str:
     return ret_num
 
 
-def allocate_sale_payments(customer, total, total_received, cash_received, upi_received, bank_received, invoice_number, sale_date, invoice_to_pay=None):
+def allocate_sale_payments(customer, total, total_received, cash_received, upi_received, bank_received, invoice_number, sale_date, invoice_to_pay=None, is_credit_sale=False):
     # This helper function distributes the total payment received following the priority:
     # 1. Previous Customer Balance (unpaid CreditLedger entries)
-    # 2. Current Invoice
+    # 2. Current Invoice (unless it's a credit sale where current bill goes 100% on credit)
     # 3. Remaining Advance (does not create Payment records, represented in the customer balance)
     # Returns (amt_paid_on_sale, shortage_on_sale, surplus_on_sale, current_sale_allocations, cash_received, upi_received, bank_received)
 
@@ -138,7 +138,7 @@ def allocate_sale_payments(customer, total, total_received, cash_received, upi_r
                         credit_ledger_id=entry.id,
                         amount=alloc_amt,
                         method=method,
-                        recorded_by_id=current_user.id,
+                        recorded_by_id=getattr(current_user, "id", 1) or 1,
                         notes=f"[{method.upper()}-PREV-DUE] Applied from Sale {invoice_number}",
                         recorded_at=sale_date,
                     ))
@@ -149,16 +149,22 @@ def allocate_sale_payments(customer, total, total_received, cash_received, upi_r
                 remaining_payment -= applied
                 allocated_to_prev += applied
 
-    # Step 2: Settle the current invoice
-    amt_paid = min(remaining_payment, total)
-    shortage = total - amt_paid
-    surplus = remaining_payment - amt_paid
+    # Step 2: Settle the current invoice (unless it's a credit sale where current bill goes 100% on credit)
+    if is_credit_sale:
+        amt_paid = 0
+        shortage = total
+        surplus = remaining_payment
+        current_sale_allocations = []
+    else:
+        amt_paid = min(remaining_payment, total)
+        shortage = total - amt_paid
+        surplus = remaining_payment - amt_paid
 
-    current_sale_allocations = []
-    if amt_paid > 0:
-        current_sale_allocations, cash_received, upi_received, bank_received = allocate_from_pools(
-            amt_paid, cash_received, upi_received, bank_received
-        )
+        current_sale_allocations = []
+        if amt_paid > 0:
+            current_sale_allocations, cash_received, upi_received, bank_received = allocate_from_pools(
+                amt_paid, cash_received, upi_received, bank_received
+            )
 
     return amt_paid, shortage, surplus, current_sale_allocations, cash_received, upi_received, bank_received
 
@@ -327,7 +333,8 @@ def create_sale():
             bank_received=bank_received,
             invoice_number=inv_num,
             sale_date=sale_date,
-            invoice_to_pay=req.invoice_to_pay
+            invoice_to_pay=req.invoice_to_pay,
+            is_credit_sale=(req.payment_method == "credit")
         )
 
         # Serialise return lines (returns + deductions) to JSON for storage on invoice

@@ -363,6 +363,19 @@ export default function BillingPage() {
   const returnProducts = returnProductsQuery.data?.data || []
   const categories = categoriesQuery.data?.data || []
 
+  const customerCreditQuery = useQuery({
+    queryKey: ['customer-credit-unpaid', customer?.id],
+    queryFn: () => import('../../api/authApi').then(m =>
+      m.default.get(`/api/customers/${customer.id}/credit`).then(r => r.data?.data?.entries || [])
+    ),
+    enabled: !!customer?.id,
+  })
+
+  const unpaidInvoices = useMemo(() => {
+    const entries = customerCreditQuery.data || []
+    return entries.filter(e => e.status !== 'paid' && e.balance > 0)
+  }, [customerCreditQuery.data])
+
   useEffect(() => {
     if (redirectCustomerId && customers.length > 0) {
       const found = customers.find(c => c.id === parseInt(redirectCustomerId))
@@ -611,7 +624,7 @@ export default function BillingPage() {
       cashPaid: splitMode ? (cashPaid ? parseFloat(cashPaid) : 0) : ((paymentMethod === 'cash' || paymentMethod === 'credit') && cashPaid ? parseFloat(cashPaid) : null),
       upiPaid: splitMode ? (upiPaid ? parseFloat(upiPaid) : 0) : (paymentMethod === 'upi' ? total / 100 : null),
       bankPaid: splitMode ? (bankPaid ? parseFloat(bankPaid) : 0) : (paymentMethod === 'bank' ? total / 100 : null),
-      invoiceToPay: ((splitMode || paymentMethod === 'cash') && invoiceToPay) ? invoiceToPay : null,
+      invoiceToPay: invoiceToPay ? invoiceToPay.trim() : null,
       discount: parseFloat(discount) || 0,   // standalone discount in rupees
       returns: deductions.map(d => ({
         label: d.label,
@@ -1538,16 +1551,60 @@ export default function BillingPage() {
                     onChange={e => setCreditDays(e.target.value)}
                   />
 
-                  <TextField
-                    id="checkout-split-invoice-to-pay"
-                    label="Pay Previous Invoice # (optional)"
-                    placeholder="e.g. INV-0012"
-                    size="small"
-                    value={invoiceToPay}
-                    onChange={e => setInvoiceToPay(e.target.value)}
-                    fullWidth
-                    helperText="Specify to apply surplus to a specific older bill"
-                  />
+                  {customer && (
+                    <Autocomplete
+                      id="checkout-split-invoice-to-pay"
+                      options={unpaidInvoices}
+                      getOptionLabel={(option) => typeof option === 'string' ? option : `${option.invoiceRef || 'Bill'} · Due: ₹${(option.balance / 100).toFixed(2)}${option.dueDate ? ' (Due: ' + option.dueDate + ')' : ''}`}
+                      value={unpaidInvoices.find(e => e.invoiceRef === invoiceToPay) || (invoiceToPay ? invoiceToPay : null)}
+                      onChange={(_, newValue) => {
+                        if (!newValue) {
+                          setInvoiceToPay('')
+                        } else if (typeof newValue === 'string') {
+                          setInvoiceToPay(newValue)
+                        } else {
+                          setInvoiceToPay(newValue.invoiceRef || '')
+                        }
+                      }}
+                      freeSolo
+                      onInputChange={(_, newInputValue) => {
+                        setInvoiceToPay(newInputValue)
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Pay Previous Invoice # (optional)"
+                          placeholder="Select or type previous bill ref (e.g. INV-202608-0001)"
+                          size="small"
+                          fullWidth
+                          helperText={
+                            unpaidInvoices.length > 0
+                              ? `${unpaidInvoices.length} unpaid bill(s) available for ${customer.name}`
+                              : "Specify to apply payment to a specific older bill"
+                          }
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <Box component="li" {...props} key={option.id}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                            <Box>
+                              <Typography sx={{ fontWeight: 700, fontSize: '0.85rem' }}>{option.invoiceRef || 'Credit Entry'}</Typography>
+                              {option.dueDate && (
+                                <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Due: {option.dueDate}</Typography>
+                              )}
+                            </Box>
+                            <Chip
+                              label={`Due: ₹${(option.balance / 100).toFixed(2)}`}
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              sx={{ height: 22, fontSize: '0.72rem', fontWeight: 700 }}
+                            />
+                          </Box>
+                        </Box>
+                      )}
+                    />
+                  )}
                 </Stack>
               ) : (
                 <>
@@ -1647,15 +1704,58 @@ export default function BillingPage() {
                             : `Surplus of ₹${(parseFloat(cashPaid) - (total / 100)).toFixed(2)} will reduce credit dues`
                         ) : ''}
                       />
-                      <TextField
+
+                      <Autocomplete
                         id="checkout-invoice-to-pay"
-                        label="Pay Previous Invoice # (optional)"
-                        placeholder="e.g. INV-0012"
-                        size="small"
-                        value={invoiceToPay}
-                        onChange={e => setInvoiceToPay(e.target.value)}
-                        fullWidth
-                        helperText="Specify to apply surplus to a specific older bill"
+                        options={unpaidInvoices}
+                        getOptionLabel={(option) => typeof option === 'string' ? option : `${option.invoiceRef || 'Bill'} · Due: ₹${(option.balance / 100).toFixed(2)}${option.dueDate ? ' (Due: ' + option.dueDate + ')' : ''}`}
+                        value={unpaidInvoices.find(e => e.invoiceRef === invoiceToPay) || (invoiceToPay ? invoiceToPay : null)}
+                        onChange={(_, newValue) => {
+                          if (!newValue) {
+                            setInvoiceToPay('')
+                          } else if (typeof newValue === 'string') {
+                            setInvoiceToPay(newValue)
+                          } else {
+                            setInvoiceToPay(newValue.invoiceRef || '')
+                          }
+                        }}
+                        freeSolo
+                        onInputChange={(_, newInputValue) => {
+                          setInvoiceToPay(newInputValue)
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Pay Previous Invoice # (optional)"
+                            placeholder="Select or type previous bill ref (e.g. INV-202608-0001)"
+                            size="small"
+                            fullWidth
+                            helperText={
+                              unpaidInvoices.length > 0
+                                ? `${unpaidInvoices.length} unpaid bill(s) available for ${customer.name}`
+                                : "Specify to apply surplus to a specific older bill"
+                            }
+                          />
+                        )}
+                        renderOption={(props, option) => (
+                          <Box component="li" {...props} key={option.id}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                              <Box>
+                                <Typography sx={{ fontWeight: 700, fontSize: '0.85rem' }}>{option.invoiceRef || 'Credit Entry'}</Typography>
+                                {option.dueDate && (
+                                  <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Due: {option.dueDate}</Typography>
+                                )}
+                              </Box>
+                              <Chip
+                                label={`Due: ₹${(option.balance / 100).toFixed(2)}`}
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                sx={{ height: 22, fontSize: '0.72rem', fontWeight: 700 }}
+                              />
+                            </Box>
+                          </Box>
+                        )}
                       />
                     </Stack>
                   )}
@@ -1669,23 +1769,76 @@ export default function BillingPage() {
                   {paymentMethod === 'credit' && (
                     <Stack spacing={1.5}>
                       {customer && (
-                        <TextField
-                          id="checkout-credit-cash-paid"
-                          label="Downpayment Received (optional)"
-                          placeholder="e.g. 1000"
-                          size="small"
-                          type="number"
-                          inputProps={{ min: 0, step: 'any' }}
-                          onWheel={(e) => e.target.blur()}
-                          value={cashPaid}
-                          onChange={e => setCashPaid(e.target.value)}
-                          fullWidth
-                          helperText={cashPaid && parseFloat(cashPaid) > 0 ? (
-                            parseFloat(cashPaid) >= (total / 100)
-                              ? `Downpayment matches/exceeds total. No credit will be added.`
-                              : `Remaining ₹${((total / 100) - parseFloat(cashPaid)).toFixed(2)} will be added to credit dues`
-                          ) : ''}
-                        />
+                        <>
+                          <TextField
+                            id="checkout-credit-cash-paid"
+                            label="Amount Received Today (Towards Previous Dues)"
+                            placeholder="e.g. 1000"
+                            size="small"
+                            type="number"
+                            inputProps={{ min: 0, step: 'any' }}
+                            onWheel={(e) => e.target.blur()}
+                            value={cashPaid}
+                            onChange={e => setCashPaid(e.target.value)}
+                            fullWidth
+                            helperText={cashPaid && parseFloat(cashPaid) > 0 ? (
+                              `✨ Received ₹${parseFloat(cashPaid).toFixed(2)} will reduce customer's previous credit balance${invoiceToPay ? ' (' + invoiceToPay + ')' : ''}. Today's bill (₹${(total / 100).toFixed(2)}) goes 100% on Credit.`
+                            ) : 'Optional payment received today towards customer\'s previous credit balance'}
+                          />
+
+                          <Autocomplete
+                            id="checkout-credit-invoice-to-pay"
+                            options={unpaidInvoices}
+                            getOptionLabel={(option) => typeof option === 'string' ? option : `${option.invoiceRef || 'Bill'} · Due: ₹${(option.balance / 100).toFixed(2)}${option.dueDate ? ' (Due: ' + option.dueDate + ')' : ''}`}
+                            value={unpaidInvoices.find(e => e.invoiceRef === invoiceToPay) || (invoiceToPay ? invoiceToPay : null)}
+                            onChange={(_, newValue) => {
+                              if (!newValue) {
+                                setInvoiceToPay('')
+                              } else if (typeof newValue === 'string') {
+                                setInvoiceToPay(newValue)
+                              } else {
+                                setInvoiceToPay(newValue.invoiceRef || '')
+                              }
+                            }}
+                            freeSolo
+                            onInputChange={(_, newInputValue) => {
+                              setInvoiceToPay(newInputValue)
+                            }}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                label="Pay Previous Invoice # (optional)"
+                                placeholder="Select or type previous bill ref (e.g. INV-202608-0001)"
+                                size="small"
+                                fullWidth
+                                helperText={
+                                  unpaidInvoices.length > 0
+                                    ? `${unpaidInvoices.length} unpaid bill(s) available for ${customer.name}`
+                                    : "Specify to apply payment to a specific older bill"
+                                }
+                              />
+                            )}
+                            renderOption={(props, option) => (
+                              <Box component="li" {...props} key={option.id}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                                  <Box>
+                                    <Typography sx={{ fontWeight: 700, fontSize: '0.85rem' }}>{option.invoiceRef || 'Credit Entry'}</Typography>
+                                    {option.dueDate && (
+                                      <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>Due: {option.dueDate}</Typography>
+                                    )}
+                                  </Box>
+                                  <Chip
+                                    label={`Due: ₹${(option.balance / 100).toFixed(2)}`}
+                                    size="small"
+                                    color="error"
+                                    variant="outlined"
+                                    sx={{ height: 22, fontSize: '0.72rem', fontWeight: 700 }}
+                                  />
+                                </Box>
+                              </Box>
+                            )}
+                          />
+                        </>
                       )}
                       <TextField
                         id="checkout-credit-days"
