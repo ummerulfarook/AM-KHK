@@ -115,7 +115,7 @@ echo  DEPLOYMENT COMPLETE!
 echo.
 echo  To verify everything is working correctly,
 echo  open this URL in the browser after restart:
-echo    http://localhost:5000/api/billing/pdf-diagnostics
+echo    http://localhost:8000/api/billing/pdf-diagnostics
 echo.
 echo  You should see:
 echo    active_pdf_engine: Playwright (NEW DESIGN - correct)
