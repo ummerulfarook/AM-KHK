@@ -22,8 +22,10 @@ def login():
         return jsonify({"error": "Validation failed", "details": exc.args[0]}), 422
 
     from .. import db
+    from sqlalchemy import func
+    clean_username = (payload.username or "").strip().lower()
     user: User | None = db.session.execute(
-        db.select(User).where(User.name == payload.username, User.status == "active")
+        db.select(User).where(func.lower(User.name) == clean_username, User.status == "active")
     ).scalar_one_or_none()
 
     if user is None or not check_password(payload.password, user.password_hash):
