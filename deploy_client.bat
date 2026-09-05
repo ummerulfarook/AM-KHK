@@ -26,14 +26,14 @@ SET PLAYWRIGHT_BROWSERS_PATH=C:\ms-playwright
 
 echo.
 echo [STEP 1] Pulling latest code from GitHub...
-git fetch origin feature/customer-substores-sales-reports-final
-git reset --hard origin/feature/customer-substores-sales-reports-final
+git fetch origin main
+git reset --hard origin/main
 if %errorlevel% neq 0 (
     echo ERROR: git reset failed.
     pause
     exit /b 1
 )
-echo Latest code applied.
+echo Latest code applied from main branch.
 
 echo.
 echo [STEP 2] Checking if Playwright is installed...
