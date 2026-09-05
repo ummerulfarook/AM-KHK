@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Box, Typography, Stack, Grid, TextField, Autocomplete,
   Table, TableBody, TableCell, TableHead, TableRow, IconButton,
-  Chip, CircularProgress, Alert, Paper, Divider, FormControl, InputLabel, Select, MenuItem
+  Chip, CircularProgress, Alert, Paper, Divider, FormControl, InputLabel, Select, MenuItem, InputAdornment
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
@@ -11,6 +11,7 @@ import ReceiptIcon from '@mui/icons-material/Receipt'
 import PersonIcon from '@mui/icons-material/Person'
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag'
 import CloseIcon from '@mui/icons-material/Close'
+import SearchIcon from '@mui/icons-material/Search'
 import { billingApi } from '../../api/billingApi'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -18,6 +19,7 @@ export default function ReturnBillingDialog({ open, onClose, customers = [], sho
   const queryClient = useQueryClient()
 
   const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [invoiceSearch, setInvoiceSearch] = useState('')
   const [selectedInvoice, setSelectedInvoice] = useState(null)
   const [returnCart, setReturnCart] = useState([]) // [{ productId, productName, unit, unitPrice, soldQty, availableToReturn, returnQty, subtotal }]
   const [refundMethod, setRefundMethod] = useState('credit') // 'credit' or 'cash'
@@ -27,6 +29,7 @@ export default function ReturnBillingDialog({ open, onClose, customers = [], sho
   useEffect(() => {
     if (!open) {
       setSelectedCustomer(null)
+      setInvoiceSearch('')
       setSelectedInvoice(null)
       setReturnCart([])
       setRefundMethod('credit')
@@ -34,12 +37,16 @@ export default function ReturnBillingDialog({ open, onClose, customers = [], sho
     }
   }, [open])
 
-  // Fetch invoices for selected customer
+  // Fetch invoices for selected customer or direct search
   const invoicesQuery = useQuery({
-    queryKey: ['customer-invoices-lookup', selectedCustomer?.id],
-    queryFn: () => billingApi.invoiceLookup({ customerId: selectedCustomer.id, perPage: 50 }),
-    enabled: !!selectedCustomer?.id && open,
-    staleTime: 5000,
+    queryKey: ['customer-invoices-lookup', selectedCustomer?.id, invoiceSearch],
+    queryFn: () => billingApi.invoiceLookup({
+      customerId: selectedCustomer?.id || undefined,
+      q: invoiceSearch.trim() || undefined,
+      perPage: 100
+    }),
+    enabled: (!!selectedCustomer?.id || invoiceSearch.trim().length >= 2) && open,
+    staleTime: 3000,
   })
 
   // Fetch items for return when an invoice is selected
@@ -47,7 +54,7 @@ export default function ReturnBillingDialog({ open, onClose, customers = [], sho
     queryKey: ['invoice-items-for-return', selectedInvoice?.id],
     queryFn: () => billingApi.getSaleItemsForReturn(selectedInvoice.id),
     enabled: !!selectedInvoice?.id && open,
-    staleTime: 5000,
+    staleTime: 3000,
   })
 
   const customerInvoices = invoicesQuery.data?.data || []
@@ -140,11 +147,6 @@ export default function ReturnBillingDialog({ open, onClose, customers = [], sho
   const handleSubmit = (e) => {
     e.preventDefault()
 
-    if (!selectedCustomer) {
-      showToast('Please select a customer first', 'warning')
-      return
-    }
-
     if (!selectedInvoice) {
       showToast('Please select an invoice to return against', 'warning')
       return
@@ -173,7 +175,7 @@ export default function ReturnBillingDialog({ open, onClose, customers = [], sho
     }
 
     returnMutation.mutate({
-      customerId: selectedCustomer.id,
+      customerId: selectedCustomer?.id || selectedInvoice.customerId || null,
       invoiceNumber: selectedInvoice.invoiceNumber,
       refundMethod: refundMethod,
       notes: notes.trim() || null,
@@ -224,19 +226,34 @@ export default function ReturnBillingDialog({ open, onClose, customers = [], sho
                     label="Customer"
                     placeholder="Search & select customer to view invoices..."
                     size="small"
-                    required
                   />
                 )}
               />
             </Box>
 
             {/* STEP 2: INVOICES SELECTION */}
-            {selectedCustomer && (
+            {(selectedCustomer || invoiceSearch.trim().length >= 2) && (
               <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0E3A2A', mb: 1, display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                  <ReceiptIcon fontSize="small" sx={{ color: '#059669' }} />
-                  2. Select Customer's Invoice
-                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0E3A2A', display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                    <ReceiptIcon fontSize="small" sx={{ color: '#059669' }} />
+                    2. Select Invoice
+                  </Typography>
+                  <TextField
+                    size="small"
+                    placeholder="Filter by Invoice # (e.g. INV-1001)..."
+                    value={invoiceSearch}
+                    onChange={(e) => setInvoiceSearch(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" />
+                        </InputAdornment>
+                      )
+                    }}
+                    sx={{ width: 260 }}
+                  />
+                </Box>
 
                 {invoicesQuery.isLoading ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
@@ -244,10 +261,10 @@ export default function ReturnBillingDialog({ open, onClose, customers = [], sho
                   </Box>
                 ) : customerInvoices.length === 0 ? (
                   <Alert severity="info" sx={{ borderRadius: '12px' }}>
-                    No invoices found for <strong>{selectedCustomer.name}</strong>.
+                    No matching invoices found {selectedCustomer ? `for ${selectedCustomer.name}` : ''}.
                   </Alert>
                 ) : (
-                  <Grid container spacing={1.5} sx={{ maxHeight: 180, overflowY: 'auto', pr: 0.5 }}>
+                  <Grid container spacing={1.5} sx={{ maxHeight: 200, overflowY: 'auto', pr: 0.5 }}>
                     {customerInvoices.map((inv) => {
                       const isSelected = selectedInvoice?.id === inv.id
                       return (
@@ -289,6 +306,9 @@ export default function ReturnBillingDialog({ open, onClose, customers = [], sho
                                 sx={{ height: 20, fontSize: '0.7rem', bgcolor: isSelected ? '#059669' : '#EEF5F0', color: isSelected ? '#FFF' : '#71837A' }}
                               />
                             </Box>
+                            <Typography variant="caption" sx={{ color: '#71837A', display: 'block', mt: 0.3, fontStyle: 'italic' }}>
+                              Billed to: {inv.customerName}
+                            </Typography>
                           </Paper>
                         </Grid>
                       )

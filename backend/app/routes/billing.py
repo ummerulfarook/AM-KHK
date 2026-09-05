@@ -565,19 +565,36 @@ def get_sale(sale_id: int):
 @login_required
 def invoice_lookup():
     """
-    Search for invoices by last digits of invoice number (e.g. "125" → INV-202507-0125)
-    or by customer_id. Returns a paginated list of matching sales.
+    Search for invoices by invoice number, customer_id, customer name, or phone.
+    Returns matching sales.
     """
     query_str = (request.args.get("q") or "").strip()
     customer_id = request.args.get("customerId", type=int)
     page = max(1, request.args.get("page", 1, type=int))
-    per_page = min(50, request.args.get("perPage", 15, type=int))
+    per_page = min(1000, request.args.get("perPage", 100, type=int))
 
     stmt = db.select(RetailSale)
+
     if query_str:
-        stmt = stmt.where(RetailSale.invoice_number.like(f"%{query_str}%"))
+        stmt = stmt.where(
+            or_(
+                RetailSale.invoice_number.ilike(f"%{query_str}%"),
+                RetailSale.billing_customer_name.ilike(f"%{query_str}%"),
+                RetailSale.billing_customer_phone.ilike(f"%{query_str}%")
+            )
+        )
+
     if customer_id:
-        stmt = stmt.where(RetailSale.customer_id == customer_id)
+        customer = db.session.get(Customer, customer_id)
+        if customer:
+            conditions = [RetailSale.customer_id == customer_id]
+            if customer.name:
+                conditions.append(func.lower(RetailSale.billing_customer_name) == customer.name.lower())
+            if customer.phone:
+                conditions.append(RetailSale.billing_customer_phone == customer.phone)
+            stmt = stmt.where(or_(*conditions))
+        else:
+            stmt = stmt.where(RetailSale.customer_id == customer_id)
 
     total = db.session.execute(
         db.select(func.count()).select_from(stmt.subquery())
