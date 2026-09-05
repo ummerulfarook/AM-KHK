@@ -1103,6 +1103,7 @@ function CustomerSalesReportView({ customerId, customerName, stores, products, t
   const [dateTo, setDateTo] = useState('')
   const [productId, setProductId] = useState('')
   const [storeId, setStoreId] = useState('')
+  const [sortStoresByAmount, setSortStoresByAmount] = useState(true) // true = highest first
 
   const reportQuery = useQuery({
     queryKey: ['customer-sales-report', customerId, dateFrom, dateTo, productId, storeId],
@@ -1117,6 +1118,15 @@ function CustomerSalesReportView({ customerId, customerName, stores, products, t
   const reportData = reportQuery.data?.data || []
   const summary = reportQuery.data?.summary || { totalInvoices: 0, totalQuantity: 0, totalAmount: 0 }
   const storeSubtotals = reportQuery.data?.storeSubtotals || {}
+
+  // Sort store subtotals
+  const sortedStoreSubtotals = useMemo(() => {
+    const entries = Object.entries(storeSubtotals)
+    if (sortStoresByAmount) {
+      return entries.sort(([, a], [, b]) => b.amount - a.amount)
+    }
+    return entries.sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+  }, [storeSubtotals, sortStoresByAmount])
 
   const handleDownloadPdf = async () => {
     try {
@@ -1296,27 +1306,40 @@ function CustomerSalesReportView({ customerId, customerName, stores, products, t
 
       {/* Store-wise Subtotals section */}
       {Object.keys(storeSubtotals).length > 0 && (
-        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
-          <TableContainer component={Paper} elevation={0} sx={{ maxWidth: 400, border: `1px solid ${tokens.border}`, borderRadius: '12px', overflow: 'hidden' }}>
-            <Table size="small">
-              <TableHead sx={{ backgroundColor: tokens.surfaceAlt }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>Store Name</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>Qty</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>Amount</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {Object.entries(storeSubtotals).map(([storeName, sub]) => (
-                  <TableRow key={storeName}>
-                    <TableCell sx={{ fontWeight: 600 }}>{storeName}</TableCell>
-                    <TableCell align="right">{sub.quantity.toFixed(2)}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: tokens.emerald600 }}>{fmtRupees(sub.amount)}</TableCell>
+        <Box sx={{ mt: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: tokens.forest800 }}>Store-wise Subtotals</Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              sx={{ borderRadius: '8px', textTransform: 'none', fontSize: '0.75rem', py: 0.25 }}
+              onClick={() => setSortStoresByAmount(s => !s)}
+            >
+              {sortStoresByAmount ? 'Sorted: Highest First' : 'Sorted: A–Z'}
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <TableContainer component={Paper} elevation={0} sx={{ maxWidth: 420, border: `1px solid ${tokens.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+              <Table size="small">
+                <TableHead sx={{ backgroundColor: tokens.surfaceAlt }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Store Name</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>Qty</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>Amount</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {sortedStoreSubtotals.map(([storeName, sub]) => (
+                    <TableRow key={storeName}>
+                      <TableCell sx={{ fontWeight: 600 }}>{storeName}</TableCell>
+                      <TableCell align="right">{sub.quantity.toFixed(2)}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: tokens.emerald600 }}>{fmtRupees(sub.amount)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
         </Box>
       )}
     </Box>

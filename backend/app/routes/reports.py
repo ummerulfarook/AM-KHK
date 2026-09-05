@@ -912,6 +912,98 @@ def get_bank_summary():
     return jsonify({"data": results}), 200
 
 
+@reports_bp.route("/cash-summary", methods=["GET"])
+@login_required
+@require_roles("owner", "manager", "accountant")
+def get_cash_summary():
+    """Retrieve total Cash collections breakdown (POS Cash, Wholesale Cash, Ledger Payments Cash, Total Cash Collected)."""
+    start_date, end_date = _get_date_filters()
+
+    # 1. Retail Sales Cash Receipts (both full cash sales and split cash received)
+    rs_query = db.select(RetailSale).where(
+        (RetailSale.payment_method == "cash") | (RetailSale.cash_received.isnot(None) & (RetailSale.cash_received > 0))
+    )
+    if start_date:
+        rs_query = rs_query.where(RetailSale.created_at >= start_date)
+    if end_date:
+        rs_query = rs_query.where(RetailSale.created_at <= end_date)
+    rs_receipts = db.session.execute(rs_query).scalars().all()
+
+    # 2. Wholesale Direct Cash Receipts
+    wo_query = db.select(WholesaleOrder).where(WholesaleOrder.payment_method == "cash").where(WholesaleOrder.status == "delivered")
+    if start_date:
+        wo_query = wo_query.where(WholesaleOrder.created_at >= start_date)
+    if end_date:
+        wo_query = wo_query.where(WholesaleOrder.created_at <= end_date)
+    wo_receipts = db.session.execute(wo_query).scalars().all()
+
+    # 3. Credit Ledger Cash Payments
+    pay_query = db.select(Payment).where(Payment.method == "cash")
+    if start_date:
+        pay_query = pay_query.where(Payment.recorded_at >= start_date)
+    if end_date:
+        pay_query = pay_query.where(Payment.recorded_at <= end_date)
+    payments_receipts = db.session.execute(pay_query).scalars().all()
+
+    tx_list = []
+    total_pos_cash = 0
+    total_wholesale_cash = 0
+    total_ledger_cash = 0
+
+    for r in rs_receipts:
+        amt = r.cash_received if (r.cash_received is not None and r.cash_received > 0) else r.total
+        if amt and amt > 0:
+            total_pos_cash += amt
+            cust_name = r.customer.name if r.customer else (r.billing_customer_name or "Walk-in")
+            tx_list.append({
+                "category": "POS Cash Sale",
+                "ref": r.invoice_number or f"RS-{r.id}",
+                "customerName": cust_name,
+                "amount": amt,
+                "date": r.created_at.isoformat()
+            })
+
+    for w in wo_receipts:
+        amt = w.total_amount
+        if amt and amt > 0:
+            total_wholesale_cash += amt
+            cust_name = w.customer.name if w.customer else "Wholesale"
+            tx_list.append({
+                "category": "Wholesale Cash Sale",
+                "ref": f"WO-{w.id:04d}",
+                "customerName": cust_name,
+                "amount": amt,
+                "date": w.created_at.isoformat()
+            })
+
+    for p in payments_receipts:
+        amt = p.amount
+        if amt and amt > 0:
+            total_ledger_cash += amt
+            ref = p.credit_entry.invoice_ref if p.credit_entry else f"PM-{p.id}"
+            cust_name = (p.credit_entry.customer.name if (p.credit_entry and p.credit_entry.customer) else "Credit Customer")
+            tx_list.append({
+                "category": "Credit Payment (Cash)",
+                "ref": ref,
+                "customerName": cust_name,
+                "amount": amt,
+                "date": p.recorded_at.isoformat()
+            })
+
+    tx_list.sort(key=lambda x: x["date"], reverse=True)
+    grand_total = total_pos_cash + total_wholesale_cash + total_ledger_cash
+
+    summary = {
+        "grandTotalCash": grand_total,
+        "totalPosCash": total_pos_cash,
+        "totalWholesaleCash": total_wholesale_cash,
+        "totalLedgerCash": total_ledger_cash,
+        "transactions": tx_list
+    }
+
+    return jsonify({"data": summary}), 200
+
+
 @reports_bp.route("/pdf", methods=["GET"])
 @login_required
 @require_roles("owner", "manager", "accountant")
@@ -1285,7 +1377,7 @@ def download_pdf_report():
 
 # ── General Product Sales Report Endpoints ─────────────────────────────────────
 
-def _get_product_sales_report_data(date_from, date_to, product_id, store_id):
+def _get_product_sales_report_data(date_from, date_to, product_id, store_id, customer_id=None):
     # 1. Retail Sales Items
     stmt_rs = db.select(SaleItem).join(RetailSale)
     if date_from:
@@ -1296,10 +1388,12 @@ def _get_product_sales_report_data(date_from, date_to, product_id, store_id):
         stmt_rs = stmt_rs.where(SaleItem.product_id == int(product_id))
     if store_id:
         stmt_rs = stmt_rs.where(RetailSale.store_id == int(store_id))
+    if customer_id:
+        stmt_rs = stmt_rs.where(RetailSale.customer_id == int(customer_id))
     
     sale_items = db.session.execute(stmt_rs).scalars().all()
 
-    # 2. Wholesale Orders Items
+    # 2. Wholesale Orders Items (skip if customer_id filter is applied — WO uses same customer_id)
     stmt_wo = db.select(WholesaleOrderItem).join(WholesaleOrder)
     if date_from:
         stmt_wo = stmt_wo.where(WholesaleOrder.created_at >= f"{date_from} 00:00:00")
@@ -1309,6 +1403,8 @@ def _get_product_sales_report_data(date_from, date_to, product_id, store_id):
         stmt_wo = stmt_wo.where(WholesaleOrderItem.product_id == int(product_id))
     if store_id:
         stmt_wo = stmt_wo.where(WholesaleOrder.store_id == int(store_id))
+    if customer_id:
+        stmt_wo = stmt_wo.where(WholesaleOrder.customer_id == int(customer_id))
 
     wo_items = db.session.execute(stmt_wo).scalars().all()
 
@@ -1369,8 +1465,9 @@ def get_general_product_sales_report():
     date_to = request.args.get("dateTo")
     product_id = request.args.get("productId")
     store_id = request.args.get("storeId")
+    customer_id = request.args.get("customerId")
 
-    rows = _get_product_sales_report_data(date_from, date_to, product_id, store_id)
+    rows = _get_product_sales_report_data(date_from, date_to, product_id, store_id, customer_id=customer_id)
 
     grand_total_qty = sum(x["quantitySold"] for x in rows)
     grand_total_sales = sum(x["totalSales"] for x in rows)
@@ -1392,8 +1489,9 @@ def get_general_product_sales_report_pdf():
     date_to = request.args.get("dateTo")
     product_id = request.args.get("productId")
     store_id = request.args.get("storeId")
+    customer_id = request.args.get("customerId")
 
-    rows = _get_product_sales_report_data(date_from, date_to, product_id, store_id)
+    rows = _get_product_sales_report_data(date_from, date_to, product_id, store_id, customer_id=customer_id)
 
     grand_total_qty = sum(x["quantitySold"] for x in rows)
     grand_total_sales = sum(x["totalSales"] for x in rows)
@@ -1443,8 +1541,9 @@ def get_general_product_sales_report_excel():
     date_to = request.args.get("dateTo")
     product_id = request.args.get("productId")
     store_id = request.args.get("storeId")
+    customer_id = request.args.get("customerId")
 
-    rows = _get_product_sales_report_data(date_from, date_to, product_id, store_id)
+    rows = _get_product_sales_report_data(date_from, date_to, product_id, store_id, customer_id=customer_id)
 
     import openpyxl
     from openpyxl.styles import PatternFill, Font, Alignment

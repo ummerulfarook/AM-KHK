@@ -177,22 +177,78 @@ export default function InvoiceDialog({ sale, open, onNewSale, onClose }) {
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-              <Typography sx={{ fontSize: '0.8rem', color: alpha('#fff', 0.7) }}>Items</Typography>
+              <Typography sx={{ fontSize: '0.8rem', color: alpha('#fff', 0.7) }}>Items Purchased</Typography>
               <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{sale.items?.length || 0}</Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-              <Typography sx={{ fontSize: '0.8rem', color: alpha('#fff', 0.7) }}>Payment</Typography>
+              <Typography sx={{ fontSize: '0.8rem', color: alpha('#fff', 0.7) }}>Payment Method</Typography>
               <StatusBadge status={sale.paymentMethod} size="small" />
             </Box>
 
+            {/* Returned Items Breakdown Section */}
+            {sale.deductions && sale.deductions.length > 0 && (
+              <Box sx={{ my: 1.5, p: 1.5, borderRadius: '12px', background: alpha(tokens.red500, 0.15), border: `1px solid ${alpha(tokens.red500, 0.3)}` }}>
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: tokens.red500, letterSpacing: '0.05em', textTransform: 'uppercase', mb: 1 }}>
+                  ↩ Returned Products ({sale.deductions.length})
+                </Typography>
+                <Stack spacing={0.75}>
+                  {sale.deductions.map((d, idx) => (
+                    <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: '#fff' }}>{d.label}</Typography>
+                        <Typography sx={{ fontSize: '0.68rem', color: alpha('#fff', 0.6) }}>
+                          {d.qty} @ {fmt(d.unitPrice)}{d.originalInvoiceRef ? ` (Ref: ${d.originalInvoiceRef})` : ''}
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: tokens.red500 }}>
+                        −{fmt(d.subtotal)}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+
             <Divider sx={{ borderColor: alpha('#fff', 0.15), mb: 1.5 }} />
 
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: sale.customerId ? 1.5 : 0 }}>
-              <Typography sx={{ fontSize: '0.85rem', color: alpha('#fff', 0.8) }}>Total Amount</Typography>
-              <Typography sx={{ fontSize: '1.4rem', fontWeight: 700, color: tokens.emerald400 }}>
-                {fmt(sale.total)}
-              </Typography>
-            </Box>
+            {/* Totals Breakdown */}
+            {(() => {
+              const returnTotal = (sale.deductions || []).reduce((sum, d) => sum + (d.subtotal || 0), 0)
+              const standaloneDiscount = Math.max(0, (sale.discount || 0) - returnTotal)
+              const grossSubtotal = sale.subtotal || 0
+
+              return (
+                <Stack spacing={0.75} sx={{ mb: 1.5 }}>
+                  {(returnTotal > 0 || standaloneDiscount > 0) && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ fontSize: '0.8rem', color: alpha('#fff', 0.7) }}>Gross Subtotal</Typography>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{fmt(grossSubtotal)}</Typography>
+                    </Box>
+                  )}
+
+                  {returnTotal > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ fontSize: '0.8rem', color: tokens.red500, fontWeight: 600 }}>Returned Items Deduction</Typography>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: tokens.red500 }}>−{fmt(returnTotal)}</Typography>
+                    </Box>
+                  )}
+
+                  {standaloneDiscount > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography sx={{ fontSize: '0.8rem', color: tokens.amber500, fontWeight: 600 }}>Discount</Typography>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: tokens.amber500 }}>−{fmt(standaloneDiscount)}</Typography>
+                    </Box>
+                  )}
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 0.5 }}>
+                    <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: alpha('#fff', 0.9) }}>Net Payable Total</Typography>
+                    <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, color: tokens.emerald400 }}>
+                      {fmt(sale.total)}
+                    </Typography>
+                  </Box>
+                </Stack>
+              )
+            })()}
 
             {sale.customerId && (
               <>

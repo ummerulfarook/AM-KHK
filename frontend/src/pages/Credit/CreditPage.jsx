@@ -210,11 +210,9 @@ export default function CreditPage() {
                   <TableCell>Customer</TableCell>
                   <TableCell>Invoice Ref</TableCell>
                   <TableCell align="right">Invoice Amt</TableCell>
-                  <TableCell align="right">Paid Amt</TableCell>
-                  <TableCell align="right">Outstanding Balance</TableCell>
                   <TableCell>Due Date</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell align="right">Action</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -223,10 +221,6 @@ export default function CreditPage() {
                     <TableCell sx={{ fontWeight: 600 }}>{entry.customerName}</TableCell>
                     <TableCell>{entry.invoiceRef || `ID: ${entry.id}`}</TableCell>
                     <TableCell align="right">{fmtRupees(entry.amount)}</TableCell>
-                    <TableCell align="right">{fmtRupees(entry.amountPaid)}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: entry.status === 'paid' ? 'inherit' : tokens.red500 }}>
-                      {fmtRupees(entry.balance)}
-                    </TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', color: tokens.textSecondary }}>
                       {entry.dueDate ? new Date(entry.dueDate).toLocaleDateString('en-IN') : '—'}
                     </TableCell>

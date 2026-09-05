@@ -68,6 +68,15 @@ export default function ReportsPage() {
     enabled: activeTab === 0,
   })
 
+  const cashReportQuery = useQuery({
+    queryKey: ['cash-collections-report', dateFrom, dateTo],
+    queryFn: () => reportsApi.getCashReports({
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    }),
+    enabled: activeTab === 1,
+  })
+
   const upiReportQuery = useQuery({
     queryKey: ['upi-accounts-report', dateFrom, dateTo],
     queryFn: () => reportsApi.getUpiReports({
@@ -91,6 +100,7 @@ export default function ReportsPage() {
   const [prodDateTo, setProdDateTo] = useState('')
   const [prodProductId, setProdProductId] = useState('')
   const [prodStoreId, setProdStoreId] = useState('')
+  const [prodCustomerId, setProdCustomerId] = useState('')   // NEW: customer filter
 
   const allProductsStoreQuery = useQuery({
     queryKey: ['all-products-for-report'],
@@ -106,13 +116,19 @@ export default function ReportsPage() {
   })
   const reportStores = allStoresQuery.data?.data || []
 
+  // When a customer is selected, show only their stores
+  const filteredReportStores = prodCustomerId
+    ? reportStores.filter(s => String(s.customerId) === String(prodCustomerId))
+    : reportStores
+
   const productSalesReportQuery = useQuery({
-    queryKey: ['general-product-sales-report', prodDateFrom, prodDateTo, prodProductId, prodStoreId],
+    queryKey: ['general-product-sales-report', prodDateFrom, prodDateTo, prodProductId, prodStoreId, prodCustomerId],
     queryFn: () => reportsApi.getProductSalesReport({
       dateFrom: prodDateFrom || undefined,
       dateTo: prodDateTo || undefined,
       productId: prodProductId || undefined,
-      storeId: prodStoreId || undefined
+      storeId: prodStoreId || undefined,
+      customerId: prodCustomerId || undefined,
     }),
     enabled: activeTab === 2
   })
@@ -226,7 +242,8 @@ export default function ReportsPage() {
                       dateFrom: prodDateFrom || undefined,
                       dateTo: prodDateTo || undefined,
                       productId: prodProductId || undefined,
-                      storeId: prodStoreId || undefined
+                      storeId: prodStoreId || undefined,
+                      customerId: prodCustomerId || undefined,
                     })
                   } catch (e) {
                     console.error(e)
@@ -246,7 +263,8 @@ export default function ReportsPage() {
                       dateFrom: prodDateFrom || undefined,
                       dateTo: prodDateTo || undefined,
                       productId: prodProductId || undefined,
-                      storeId: prodStoreId || undefined
+                      storeId: prodStoreId || undefined,
+                      customerId: prodCustomerId || undefined,
                     })
                   } catch (e) {
                     console.error(e)
@@ -387,6 +405,20 @@ export default function ReportsPage() {
               onChange={e => setProdDateTo(e.target.value)}
               InputLabelProps={{ shrink: true }}
             />
+            {/* Customer filter — cascades Store dropdown */}
+            <Autocomplete
+              id="prod-sales-customer"
+              options={customers}
+              getOptionLabel={c => c.name || ''}
+              value={customers.find(c => String(c.id) === String(prodCustomerId)) || null}
+              onChange={(_, v) => {
+                setProdCustomerId(v ? String(v.id) : '')
+                setProdStoreId('')   // reset store when customer changes
+              }}
+              renderInput={params => (
+                <TextField {...params} label="Customer (optional)" size="small" sx={{ width: 200 }} />
+              )}
+            />
             <FormControl size="small" sx={{ minWidth: 200 }}>
               <InputLabel id="prod-sales-product-label">Product</InputLabel>
               <Select
@@ -407,20 +439,21 @@ export default function ReportsPage() {
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel id="prod-sales-store-label">Store</InputLabel>
+              <InputLabel id="prod-sales-store-label">Store / Sub</InputLabel>
               <Select
                 labelId="prod-sales-store-label"
                 id="prod-sales-store"
                 value={prodStoreId}
-                label="Store"
+                label="Store / Sub"
                 onChange={e => setProdStoreId(e.target.value)}
               >
                 <MenuItem value="">
-                  <em>All Stores / Direct Invoices</em>
+                  <em>{prodCustomerId ? 'All stores for selected customer' : 'All Stores / Direct Invoices'}</em>
                 </MenuItem>
-                {reportStores.map((s) => (
+                {filteredReportStores.map((s) => (
                   <MenuItem key={s.id} value={s.id}>
-                    {s.name} ({s.customerName})
+                    {s.name}
+                    {!prodCustomerId && s.customerName ? ` (${s.customerName})` : ''}
                   </MenuItem>
                 ))}
               </Select>
@@ -715,12 +748,66 @@ export default function ReportsPage() {
 
       {/* ── TAB 1: Payment Accounts Report ─────────────────────────────────── */}
       {activeTab === 1 && (
-        <Grid container spacing={3.5}>
-          {/* UPI Accounts */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ borderRadius: '20px', border: `1px solid ${tokens.border}` }}>
+        <Grid container spacing={3}>
+          {/* Cash Collections */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: '20px', border: `1px solid ${tokens.border}`, height: '100%' }}>
               <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>UPI Collections Summary</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: tokens.emerald600 }}>
+                  💵 Cash Collections Summary
+                </Typography>
+                {cashReportQuery.isError ? (
+                  <Alert severity="error">Failed to load Cash collections summary</Alert>
+                ) : cashReportQuery.isLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} /></Box>
+                ) : (
+                  <Stack spacing={2}>
+                    <Box sx={{ p: 2, borderRadius: '12px', background: alpha(tokens.emerald500, 0.1), border: `1px solid ${alpha(tokens.emerald500, 0.25)}` }}>
+                      <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: tokens.textSecondary, textTransform: 'uppercase', mb: 0.5 }}>
+                        Total Cash Collected
+                      </Typography>
+                      <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, color: tokens.emerald600 }}>
+                        {fmtRupees(cashReportQuery.data?.data?.grandTotalCash || 0)}
+                      </Typography>
+                    </Box>
+
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead sx={{ backgroundColor: tokens.surfaceAlt }}>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600 }}>Source / Category</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600 }}>Amount (₹)</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 500 }}>POS Cash Sales</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>{fmtRupees(cashReportQuery.data?.data?.totalPosCash || 0)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 500 }}>Wholesale Cash Sales</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>{fmtRupees(cashReportQuery.data?.data?.totalWholesaleCash || 0)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 500 }}>Credit Ledger Cash</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>{fmtRupees(cashReportQuery.data?.data?.totalLedgerCash || 0)}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Stack>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* UPI Accounts */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: '20px', border: `1px solid ${tokens.border}`, height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: tokens.blue500 }}>
+                  📱 UPI Collections Summary
+                </Typography>
                 {upiReportQuery.isError ? (
                   <Alert severity="error">Failed to load UPI account summaries</Alert>
                 ) : upiReportQuery.isLoading ? (
@@ -731,7 +818,7 @@ export default function ReportsPage() {
                       <TableHead sx={{ backgroundColor: tokens.surfaceAlt }}>
                         <TableRow>
                           <TableCell sx={{ fontWeight: 600 }}>UPI ID / Account Name</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 600 }}>Total Collected (₹)</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 600 }}>Total (₹)</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -743,7 +830,7 @@ export default function ReportsPage() {
                           upiReportQuery.data.data.map((acc, idx) => (
                             <TableRow key={idx}>
                               <TableCell sx={{ fontWeight: 600 }}>{acc.upiId}</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 700, color: tokens.emerald600 }}>{fmtRupees(acc.totalAmount)}</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, color: tokens.blue500 }}>{fmtRupees(acc.totalAmount)}</TableCell>
                             </TableRow>
                           ))
                         )}
@@ -756,10 +843,12 @@ export default function ReportsPage() {
           </Grid>
 
           {/* Bank Accounts */}
-          <Grid item xs={12} md={6}>
-            <Card sx={{ borderRadius: '20px', border: `1px solid ${tokens.border}` }}>
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: '20px', border: `1px solid ${tokens.border}`, height: '100%' }}>
               <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Bank Transfer Summary</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: tokens.amber500 }}>
+                  🏦 Bank Transfer Summary
+                </Typography>
                 {bankReportQuery.isError ? (
                   <Alert severity="error">Failed to load Bank summaries</Alert>
                 ) : bankReportQuery.isLoading ? (
@@ -770,7 +859,7 @@ export default function ReportsPage() {
                       <TableHead sx={{ backgroundColor: tokens.surfaceAlt }}>
                         <TableRow>
                           <TableCell sx={{ fontWeight: 600 }}>Bank Name / Account</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 600 }}>Total Collected (₹)</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 600 }}>Total (₹)</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -782,7 +871,7 @@ export default function ReportsPage() {
                           bankReportQuery.data.data.map((acc, idx) => (
                             <TableRow key={idx}>
                               <TableCell sx={{ fontWeight: 600 }}>{acc.bankName}</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 700, color: tokens.emerald600 }}>{fmtRupees(acc.totalAmount)}</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, color: tokens.amber500 }}>{fmtRupees(acc.totalAmount)}</TableCell>
                             </TableRow>
                           ))
                         )}

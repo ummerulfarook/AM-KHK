@@ -44,6 +44,44 @@ def run_auto_migrations(db_path: str):
     except Exception as e:
         print(f"[AUTO-MIGRATION-ERROR] Failed to ensure table 'customer_stores' exists: {e}")
 
+    # Create return_transactions table if missing
+    try:
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS return_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            return_number VARCHAR(40) UNIQUE,
+            current_sale_id INTEGER REFERENCES retail_sales(id) ON DELETE CASCADE,
+            original_sale_id INTEGER REFERENCES retail_sales(id),
+            original_invoice_ref VARCHAR(40),
+            customer_id INTEGER REFERENCES customers(id),
+            cashier_id INTEGER REFERENCES users(id),
+            total_return_value INTEGER NOT NULL DEFAULT 0,
+            notes VARCHAR(300),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        print("[AUTO-MIGRATION] Ensured table 'return_transactions' exists")
+    except Exception as e:
+        print(f"[AUTO-MIGRATION-ERROR] Failed to ensure table 'return_transactions' exists: {e}")
+
+    # Create return_items table if missing
+    try:
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS return_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            return_transaction_id INTEGER NOT NULL REFERENCES return_transactions(id) ON DELETE CASCADE,
+            product_id INTEGER REFERENCES products(id),
+            label VARCHAR(200) NOT NULL,
+            quantity REAL NOT NULL,
+            unit_price INTEGER NOT NULL,
+            subtotal INTEGER NOT NULL,
+            original_invoice_ref VARCHAR(40)
+        );
+        """)
+        print("[AUTO-MIGRATION] Ensured table 'return_items' exists")
+    except Exception as e:
+        print(f"[AUTO-MIGRATION-ERROR] Failed to ensure table 'return_items' exists: {e}")
+
     # 1. sale_items columns
     add_column_if_missing("sale_items", "boxes", "INTEGER", default_val="0")
     add_column_if_missing("sale_items", "box_weight", "REAL", default_val="0.0")
@@ -59,6 +97,7 @@ def run_auto_migrations(db_path: str):
     add_column_if_missing("retail_sales", "upi_id", "VARCHAR(100)", default_val="NULL")
     add_column_if_missing("retail_sales", "bank_name", "VARCHAR(100)", default_val="NULL")
     add_column_if_missing("retail_sales", "store_id", "INTEGER", default_val="NULL")
+    add_column_if_missing("retail_sales", "deductions", "VARCHAR(4000)", default_val="NULL")
 
     # 4. wholesale_orders columns
     add_column_if_missing("wholesale_orders", "bank_name", "VARCHAR(100)", default_val="NULL")

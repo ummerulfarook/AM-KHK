@@ -11,7 +11,7 @@ from .product import Category, Product
 from .customer import Customer, CustomerStore
 from .supplier import Supplier
 from .order import WholesaleOrder, WholesaleOrderItem, PurchaseOrder, PurchaseOrderItem
-from .sale import RetailSale, SaleItem
+from .sale import RetailSale, SaleItem, ReturnTransaction, ReturnItem
 from .credit import CreditLedger, Payment
 from .expense import Expense, Income
 from .settings import Setting
@@ -23,6 +23,7 @@ __all__ = [
     "WholesaleOrder", "WholesaleOrderItem",
     "PurchaseOrder", "PurchaseOrderItem",
     "RetailSale", "SaleItem",
+    "ReturnTransaction", "ReturnItem",
     "CreditLedger", "Payment",
     "Expense", "Income",
     "Setting",

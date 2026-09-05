@@ -8,6 +8,28 @@ from typing import Optional
 
 
 @dataclass
+class ReturnLineRequest:
+    """One returned item line added while creating a bill.
+
+    May reference an actual product (product_id) or be a free-form label (e.g. "Tray").
+    May reference an original invoice (original_invoice_ref) or have no specific invoice.
+    """
+    label: str              # display name (product name or custom e.g. "Tray")
+    qty: float              # quantity returned
+    unit_price: int         # paise per unit
+    product_id: Optional[int] = None        # optional real product FK
+    original_invoice_ref: Optional[str] = None  # e.g. "INV-202507-0012"
+
+    @property
+    def subtotal(self) -> int:
+        return int(Decimal(str(self.qty)) * self.unit_price)
+
+
+# Keep DeductionItemRequest as alias for backward compatibility
+DeductionItemRequest = ReturnLineRequest
+
+
+@dataclass
 class SaleItemRequest:
     product_id: int
     quantity: float
@@ -26,7 +48,7 @@ class CreateSaleRequest:
     payment_method: str
     customer_id: Optional[int] = None
     store_id: Optional[int] = None
-    discount: int = 0      # paise
+    discount: int = 0      # paise — standalone discount (separate from returns)
     tax: int = 0           # paise
     notes: Optional[str] = None
     credit_days: Optional[int] = None
@@ -39,8 +61,32 @@ class CreateSaleRequest:
     bank_paid: Optional[int] = None       # paise
     invoice_to_pay: Optional[str] = None
     custom_date: Optional[str] = None
+    returns: list[ReturnLineRequest] = field(default_factory=list)
+
+    # backward-compat alias — frontend may still send "deductions"
+    deductions: list[ReturnLineRequest] = field(default_factory=list)
 
     VALID_PAYMENT_METHODS = {"cash", "upi", "bank", "credit"}
+
+    @property
+    def all_return_lines(self) -> list[ReturnLineRequest]:
+        """Combined returns and deductions (deductions kept for backward compat)."""
+        seen = []
+        for r in self.returns:
+            seen.append(r)
+        for d in self.deductions:
+            seen.append(d)
+        return seen
+
+    @property
+    def return_total(self) -> int:
+        """Total paise value of all return/deduction lines."""
+        return sum(r.subtotal for r in self.all_return_lines)
+
+    @property
+    def total_discount(self) -> int:
+        """Combined standalone discount + returns total."""
+        return self.discount + self.return_total
 
     @classmethod
     def from_json(cls, data: dict) -> "CreateSaleRequest":
@@ -95,7 +141,7 @@ class CreateSaleRequest:
         if payment_method == "credit" and not customer_id:
             errors["customerId"] = "Customer is required for credit sales"
 
-        # Discount / tax
+        # Standalone Discount (separate from returns)
         try:
             discount = _rupees_to_paise(data.get("discount", 0))
         except (TypeError, ValueError):
@@ -120,7 +166,7 @@ class CreateSaleRequest:
         billing_customer_phone = (data.get("billingCustomerPhone") or "").strip() or None
         upi_id = (data.get("upiId") or "").strip() or None
         bank_name = (data.get("bankName") or "").strip() or None
-        
+
         cash_paid = None
         if "cashPaid" in data and data["cashPaid"] is not None:
             try:
@@ -145,6 +191,12 @@ class CreateSaleRequest:
         invoice_to_pay = (data.get("invoiceToPay") or "").strip() or None
         custom_date = (data.get("customDate") or "").strip() or None
 
+        # Returns — itemised return lines (new field name)
+        returns = _parse_return_lines(data.get("returns") or [])
+
+        # Deductions — backward-compat alias (old field name from previous implementation)
+        deductions = _parse_return_lines(data.get("deductions") or [])
+
         if errors:
             raise ValueError(errors)
 
@@ -166,7 +218,37 @@ class CreateSaleRequest:
             bank_paid=bank_paid,
             invoice_to_pay=invoice_to_pay,
             custom_date=custom_date,
+            returns=returns,
+            deductions=deductions,
         )
+
+
+def _parse_return_lines(raw_list: list) -> list[ReturnLineRequest]:
+    result = []
+    for d in raw_list:
+        try:
+            label = (d.get("label") or "").strip()
+            if not label:
+                continue
+            qty = float(d.get("qty", 1))
+            up = _rupees_to_paise(d.get("unitPrice", 0))
+            product_id = d.get("productId")
+            if product_id is not None:
+                try:
+                    product_id = int(product_id)
+                except (TypeError, ValueError):
+                    product_id = None
+            original_invoice_ref = (d.get("originalInvoiceRef") or "").strip() or None
+            result.append(ReturnLineRequest(
+                label=label,
+                qty=qty,
+                unit_price=up,
+                product_id=product_id,
+                original_invoice_ref=original_invoice_ref,
+            ))
+        except Exception:
+            pass
+    return result
 
 
 def _rupees_to_paise(value) -> int:

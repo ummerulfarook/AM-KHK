@@ -17,12 +17,14 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import PauseRoundedIcon from '@mui/icons-material/PauseRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
+import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
 import { inventoryApi } from '../../api/inventoryApi'
 import { billingApi } from '../../api/billingApi'
 import { tokens } from '../../theme/theme'
 import { settingsApi } from '../../api/settingsApi'
 import CartItem from './CartItem'
 import InvoiceDialog from './InvoiceDialog'
+import ReturnBillingDialog from './ReturnBillingDialog'
 import { useSearchParams } from 'react-router-dom'
 import StatusBadge from '../../components/common/StatusBadge'
 
@@ -61,7 +63,28 @@ export default function BillingPage() {
     }
   })
   const [paymentMethod, setPaymentMethod] = useState(() => localStorage.getItem('pos_payment_method') || 'cash')
+  // returns: itemised return lines [{label, qty, unitPrice (paise), subtotal (paise), productId?, originalInvoiceRef?}]
+  const [deductions, setDeductions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('pos_deductions') || '[]') } catch { return [] }
+  })
+  const [deductionsOpen, setDeductionsOpen] = useState(true)
+  // return form fields
+  const [dedLabel, setDedLabel] = useState('')
+  const [dedQty, setDedQty] = useState('')
+  const [dedPrice, setDedPrice] = useState('')
+  const [dedProductId, setDedProductId] = useState(null)   // product ID if linked
+  const [dedInvoiceRef, setDedInvoiceRef] = useState('')   // original invoice ref
+  const [dedProductSearch, setDedProductSearch] = useState('')
+  const [dedSelectedProduct, setDedSelectedProduct] = useState(null)
+  const [dedMaxQty, setDedMaxQty] = useState(null)
+  // standalone discount
   const [discount, setDiscount] = useState(() => localStorage.getItem('pos_discount') || '')
+  // Invoice lookup for returns panel
+  const [invLookupQ, setInvLookupQ] = useState('')
+  const [invLookupResults, setInvLookupResults] = useState([])
+  const [invLookupLoading, setInvLookupLoading] = useState(false)
+  const [selectedInv, setSelectedInv] = useState(null)    // selected invoice for return
+  const [invItems, setInvItems] = useState([])            // items of selected invoice
   const [creditDays, setCreditDays] = useState(() => localStorage.getItem('pos_credit_days') || '')
   const [notes, setNotes] = useState(() => localStorage.getItem('pos_notes') || '')
   const [invoiceDialogSale, setInvoiceDialogSale] = useState(null)
@@ -122,6 +145,8 @@ export default function BillingPage() {
   const [returnNotes, setReturnNotes] = useState('')
   const [returnSearch, setReturnSearch] = useState('')
   const [returnInvoiceNumber, setReturnInvoiceNumber] = useState('')
+  // After successful standalone return — for print option
+  const [returnSuccessData, setReturnSuccessData] = useState(null)
 
   // Quick Add State
   const [quickAddOpen, setQuickAddOpen] = useState(false)
@@ -188,6 +213,9 @@ export default function BillingPage() {
     localStorage.setItem('pos_payment_method', paymentMethod)
   }, [paymentMethod])
   useEffect(() => {
+    localStorage.setItem('pos_deductions', JSON.stringify(deductions))
+  }, [deductions])
+  useEffect(() => {
     localStorage.setItem('pos_discount', discount)
   }, [discount])
   useEffect(() => {
@@ -250,7 +278,7 @@ export default function BillingPage() {
       cart,
       customer,
       paymentMethod,
-      discount,
+      deductions,
       creditDays,
       notes,
       adHocName,
@@ -275,6 +303,14 @@ export default function BillingPage() {
     staleTime: 15_000,
   })
 
+  const dedProductsQuery = useQuery({
+    queryKey: ['inventory-ded-search', dedProductSearch],
+    queryFn: () => inventoryApi.getProducts({ search: dedProductSearch || undefined, perPage: 15 }),
+    enabled: dedProductSearch.length >= 1,
+    staleTime: 15_000,
+  })
+  const dedProducts = dedProductsQuery.data?.data || []
+
   const returnProductsQuery = useQuery({
     queryKey: ['inventory-return', returnSearch],
     queryFn: () => inventoryApi.getProducts({ search: returnSearch || undefined, perPage: 20 }),
@@ -287,7 +323,12 @@ export default function BillingPage() {
       m.default.post('/api/billing/return', data).then(r => r.data)
     ),
     onSuccess: (res) => {
-      showToast(`Return processed successfully! Refund: ₹${(res.refundAmount / 100).toFixed(2)}`, 'success')
+      // Show success dialog with print option
+      setReturnSuccessData({
+        returnTransactionId: res.returnTransactionId,
+        returnNumber: res.returnNumber,
+        refundAmount: res.refundAmount,
+      })
       setReturnDialogOpen(false)
       setReturnProduct(null)
       setReturnQty('')
@@ -422,7 +463,7 @@ export default function BillingPage() {
     setCustomer(null)
     setPaymentMethod('cash')
     setSelectedUpiAccount('')
-    setDiscount('')
+    setDeductions([])
     setCreditDays('')
     setNotes('')
     setAdHocName('')
@@ -435,13 +476,26 @@ export default function BillingPage() {
     setBankPaid('')
     setSelectedBank('')
     setInvoiceToPay('')
+    setDiscount('')
+    setSelectedInv(null)
+    setInvItems([])
+    setInvLookupQ('')
+    setInvLookupResults([])
+    setDedLabel('')
+    setDedQty('')
+    setDedPrice('')
+    setDedProductId(null)
+    setDedInvoiceRef('')
+    setDedMaxQty(null)
+    setDedSelectedProduct(null)
+    setDedProductSearch('')
     
     // Explicitly clean up localStorage session keys
     localStorage.removeItem('pos_cart')
     localStorage.removeItem('pos_customer')
     localStorage.removeItem('pos_store_id')
     localStorage.removeItem('pos_payment_method')
-    localStorage.removeItem('pos_discount')
+    localStorage.removeItem('pos_deductions')
     localStorage.removeItem('pos_credit_days')
     localStorage.removeItem('pos_notes')
     localStorage.removeItem('pos_selected_upi')
@@ -454,6 +508,7 @@ export default function BillingPage() {
     localStorage.removeItem('pos_custom_date')
     localStorage.removeItem('pos_adhoc_name')
     localStorage.removeItem('pos_adhoc_phone')
+    localStorage.removeItem('pos_discount')
   }, [])
 
   // ── Totals ────────────────────────────────────────────────────────────────
@@ -461,8 +516,13 @@ export default function BillingPage() {
     () => cart.reduce((sum, i) => sum + Math.round(i.qty * i.unitPrice), 0),
     [cart]
   )
+  // deductionTotal: sum of all itemised return/deduction subtotals (paise)
+  const deductionTotal = useMemo(
+    () => deductions.reduce((sum, d) => sum + d.subtotal, 0),
+    [deductions]
+  )
   const discountPaise = Math.round((parseFloat(discount) || 0) * 100)
-  const total = Math.max(0, subtotal - discountPaise)
+  const total = Math.max(0, subtotal - deductionTotal - discountPaise)
 
   // ── Checkout mutation ─────────────────────────────────────────────────────
   const createSaleMutation = useMutation({
@@ -542,6 +602,8 @@ export default function BillingPage() {
         productId: i.productId,
         quantity: i.qty,
         unitPrice: i.unitPrice / 100,  // send as rupees; backend converts
+        boxes: i.boxes || 0,
+        boxWeight: i.boxWeight || 0,
       })),
       paymentMethod: splitMode ? 'credit' : paymentMethod,
       upiId: selectedUpiAccount || null,
@@ -550,7 +612,14 @@ export default function BillingPage() {
       upiPaid: splitMode ? (upiPaid ? parseFloat(upiPaid) : 0) : (paymentMethod === 'upi' ? total / 100 : null),
       bankPaid: splitMode ? (bankPaid ? parseFloat(bankPaid) : 0) : (paymentMethod === 'bank' ? total / 100 : null),
       invoiceToPay: ((splitMode || paymentMethod === 'cash') && invoiceToPay) ? invoiceToPay : null,
-      discount: discount ? parseFloat(discount) : 0,
+      discount: parseFloat(discount) || 0,   // standalone discount in rupees
+      returns: deductions.map(d => ({
+        label: d.label,
+        qty: d.qty,
+        unitPrice: d.unitPrice / 100,       // send as rupees; backend converts
+        productId: d.productId || null,
+        originalInvoiceRef: d.originalInvoiceRef || null,
+      })),
       creditDays: creditDays ? parseInt(creditDays) : null,
       notes: notes || null,
       billingCustomerName: customer ? null : adHocName || null,
@@ -562,70 +631,73 @@ export default function BillingPage() {
   const cartIsEmpty = cart.length === 0
 
   return (
-    <Box sx={{ height: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 'calc(100vh - 100px)', pb: 3 }}>
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-        <PointOfSaleRoundedIcon sx={{ color: tokens.emerald600, fontSize: 28 }} />
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>POS Billing</Typography>
-        {!cartIsEmpty && (
-          <Chip
-            label={`${cart.length} item${cart.length > 1 ? 's' : ''}`}
-            size="small"
-            sx={{ ml: 1, background: alpha(tokens.emerald500, 0.12), color: tokens.emerald600, fontWeight: 700 }}
-          />
-        )}
-        <Box sx={{ flexGrow: 1 }} />
-        <Button
-          id="btn-pos-hold"
-          variant="outlined"
-          color="secondary"
-          startIcon={<PauseRoundedIcon />}
-          onClick={handleHoldBill}
-          disabled={cartIsEmpty}
-          sx={{
-            borderRadius: '10px',
-            fontWeight: 600,
-            color: tokens.textSecondary,
-            borderColor: tokens.border,
-            '&:hover': { borderColor: tokens.textSecondary, background: tokens.surfaceAlt }
-          }}
-        >
-          Hold Bill
-        </Button>
-        <Button
-          id="btn-pos-recall"
-          variant="contained"
-          onClick={() => setRecallOpen(true)}
-          startIcon={
-            <Badge badgeContent={heldBills.length} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', height: 16, minWidth: 16 } }}>
-              <HistoryRoundedIcon />
-            </Badge>
-          }
-          sx={{
-            borderRadius: '10px',
-            fontWeight: 600,
-            background: tokens.forest800,
-            color: '#fff',
-            '&:hover': { background: tokens.forest900 }
-          }}
-        >
-          Recall Draft ({heldBills.length})
-        </Button>
-        <Button
-          id="btn-pos-return"
-          variant="outlined"
-          color="warning"
-          onClick={() => setReturnDialogOpen(true)}
-          sx={{ borderRadius: '10px', fontWeight: 600 }}
-        >
-          Return Billing
-        </Button>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <PointOfSaleRoundedIcon sx={{ color: tokens.emerald600, fontSize: 28 }} />
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>POS Billing</Typography>
+          {!cartIsEmpty && (
+            <Chip
+              label={`${cart.length} item${cart.length > 1 ? 's' : ''}`}
+              size="small"
+              sx={{ background: alpha(tokens.emerald500, 0.12), color: tokens.emerald600, fontWeight: 700 }}
+            />
+          )}
+        </Box>
+        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
+          <Button
+            id="btn-pos-hold"
+            variant="outlined"
+            color="secondary"
+            startIcon={<PauseRoundedIcon />}
+            onClick={handleHoldBill}
+            disabled={cartIsEmpty}
+            sx={{
+              borderRadius: '10px',
+              fontWeight: 600,
+              color: tokens.textSecondary,
+              borderColor: tokens.border,
+              '&:hover': { borderColor: tokens.textSecondary, background: tokens.surfaceAlt }
+            }}
+          >
+            Hold Bill
+          </Button>
+          <Button
+            id="btn-pos-recall"
+            variant="contained"
+            onClick={() => setRecallOpen(true)}
+            startIcon={
+              <Badge badgeContent={heldBills.length} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', height: 16, minWidth: 16 } }}>
+                <HistoryRoundedIcon />
+              </Badge>
+            }
+            sx={{
+              borderRadius: '10px',
+              fontWeight: 600,
+              background: tokens.forest800,
+              color: '#fff',
+              '&:hover': { background: tokens.forest900 }
+            }}
+          >
+            Recall Draft ({heldBills.length})
+          </Button>
+          <Button
+            id="btn-pos-return"
+            variant="outlined"
+            color="warning"
+            onClick={() => setReturnDialogOpen(true)}
+            sx={{ borderRadius: '10px', fontWeight: 600 }}
+          >
+            Return Billing
+          </Button>
+        </Stack>
       </Box>
 
-      <Grid container spacing={2.5} sx={{ flex: 1, overflow: 'hidden' }}>
+      <Grid container spacing={2} sx={{ width: '100%', m: 0 }}>
 
         {/* ── LEFT: Product search + Cart ──────────────────────────────────── */}
-        <Grid item xs={12} lg={7} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Grid item xs={12} md={7} lg={7.5} sx={{ display: 'flex', flexDirection: 'column', pl: '0 !important' }}>
           {/* Customer Selection */}
           <Card sx={{ borderRadius: '16px', border: `1px solid ${tokens.border}`, mb: 2 }}>
             <CardContent sx={{ pb: '16px !important', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -809,13 +881,48 @@ export default function BillingPage() {
                             }
                             secondary={`Stock: ${p.currentStock} ${p.unit}`}
                           />
-                          <Box sx={{ textAlign: 'right' }}>
-                            <Typography sx={{ fontWeight: 700, color: tokens.emerald600, fontSize: '0.9rem' }}>
-                              {fmt(p.sellingPrice)}
-                            </Typography>
-                            <Typography sx={{ fontSize: '0.7rem', color: tokens.textSecondary }}>
-                              per {p.unit}
-                            </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography sx={{ fontWeight: 700, color: tokens.emerald600, fontSize: '0.9rem' }}>
+                                {fmt(p.sellingPrice)}
+                              </Typography>
+                              <Typography sx={{ fontSize: '0.7rem', color: tokens.textSecondary }}>
+                                per {p.unit}
+                              </Typography>
+                            </Box>
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDedLabel(p.name)
+                                setDedPrice((p.sellingPrice / 100).toFixed(2))
+                                setDedProductId(p.id)
+                                setDedMaxQty(null)
+                                setDeductionsOpen(true)
+                                setSearch('')
+                                setTimeout(() => {
+                                  const qtyEl = document.getElementById('ded-qty')
+                                  if (qtyEl) {
+                                    qtyEl.focus()
+                                    qtyEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                                  }
+                                }, 100)
+                              }}
+                              sx={{
+                                borderRadius: '6px',
+                                fontSize: '0.68rem',
+                                py: 0.2,
+                                px: 0.8,
+                                minWidth: 0,
+                                fontWeight: 700,
+                                borderColor: alpha(tokens.red500, 0.4),
+                                '&:hover': { background: alpha(tokens.red500, 0.1), borderColor: tokens.red500 }
+                              }}
+                            >
+                              + Return
+                            </Button>
                           </Box>
                         </ListItemButton>
                       ))}
@@ -831,7 +938,8 @@ export default function BillingPage() {
             sx={{
               borderRadius: '16px',
               border: `1px solid ${tokens.border}`,
-              flex: 1,
+              minHeight: cart.length > 0 ? '360px' : '240px',
+              flex: cart.length > 0 ? '1 0 auto' : 1,
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
@@ -839,18 +947,27 @@ export default function BillingPage() {
           >
             <CardHeader
               title={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ShoppingCartRoundedIcon sx={{ color: tokens.emerald600, fontSize: 20 }} />
-                  <Typography sx={{ fontWeight: 700, fontSize: '0.95rem' }}>Cart</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ShoppingCartRoundedIcon sx={{ color: tokens.emerald600, fontSize: 22 }} />
+                    <Typography sx={{ fontWeight: 700, fontSize: '1.05rem' }}>Cart</Typography>
+                  </Box>
+                  {!cartIsEmpty && (
+                    <Chip
+                      label={`${cart.length} item${cart.length > 1 ? 's' : ''} · Subtotal: ${fmt(subtotal)}`}
+                      size="small"
+                      sx={{ fontWeight: 700, backgroundColor: alpha(tokens.emerald500, 0.12), color: tokens.emerald600, fontSize: '0.78rem' }}
+                    />
+                  )}
                 </Box>
               }
-              sx={{ pb: 0 }}
+              sx={{ pb: 1, borderBottom: `1px solid ${tokens.border}` }}
             />
-            <CardContent sx={{ flex: 1, overflow: 'auto', pt: 1 }}>
+            <CardContent sx={{ flex: 1, overflow: 'auto', pt: 1.5, pb: '16px !important' }}>
               {cartIsEmpty ? (
                 <Box sx={{ textAlign: 'center', py: 6 }}>
-                  <Typography sx={{ fontSize: '2rem', mb: 1 }}>🛒</Typography>
-                  <Typography sx={{ color: tokens.textSecondary, fontSize: '0.875rem' }}>
+                  <Typography sx={{ fontSize: '2.5rem', mb: 1 }}>🛒</Typography>
+                  <Typography sx={{ color: tokens.textSecondary, fontSize: '0.95rem', fontWeight: 500 }}>
                     Search and click a product to add it to the cart
                   </Typography>
                 </Box>
@@ -860,9 +977,10 @@ export default function BillingPage() {
                   <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: '1fr 80px 100px 80px 36px',
-                      gap: 1,
-                      pb: 0.75,
+                      gridTemplateColumns: '1fr 90px 110px 100px 40px',
+                      gap: 1.5,
+                      pb: 1,
+                      px: 1,
                       mb: 0.5,
                       borderBottom: `2px solid ${tokens.border}`,
                     }}
@@ -871,10 +989,11 @@ export default function BillingPage() {
                       <Typography
                         key={i}
                         sx={{
-                          fontSize: '0.7rem',
-                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
                           color: tokens.textSecondary,
                           textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
                           textAlign: i > 0 ? 'right' : 'left',
                         }}
                       >
@@ -896,17 +1015,359 @@ export default function BillingPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* ── Return Items / Products Card (Second Cart in Main Billing Area) ──── */}
+          <Card
+            sx={{
+              borderRadius: '16px',
+              border: `1px solid ${deductions.length > 0 ? tokens.red500 : tokens.border}`,
+              mt: 2,
+              overflow: 'hidden',
+            }}
+          >
+            <CardHeader
+              title={
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: tokens.red500 }}>
+                      ↩ Return Items / Products
+                    </Typography>
+                    {deductions.length > 0 && (
+                      <Chip
+                        label={`${deductions.length} return item${deductions.length > 1 ? 's' : ''} · −${fmt(deductionTotal)}`}
+                        size="small"
+                        sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, backgroundColor: alpha(tokens.red500, 0.12), color: tokens.red500 }}
+                      />
+                    )}
+                  </Box>
+                  <Button
+                    size="small"
+                    onClick={() => setDeductionsOpen(o => !o)}
+                    sx={{ fontSize: '0.75rem', color: tokens.textSecondary }}
+                  >
+                    {deductionsOpen ? 'Hide' : 'Show'}
+                  </Button>
+                </Box>
+              }
+              sx={{ pb: 1, borderBottom: deductionsOpen ? `1px solid ${tokens.border}` : 'none' }}
+            />
+
+            {deductionsOpen && (
+              <CardContent sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {/* List of Return Items */}
+                {deductions.length > 0 && (
+                  <Box sx={{ mb: 1 }}>
+                    <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: tokens.red500, mb: 0.75, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Return Products List ({deductions.length})
+                    </Typography>
+                    <Stack spacing={0.75}>
+                      {deductions.map((d, idx) => (
+                        <Box
+                          key={idx}
+                          sx={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            backgroundColor: alpha(tokens.red500, 0.06),
+                            border: `1px solid ${alpha(tokens.red500, 0.15)}`,
+                            borderRadius: '8px',
+                            px: 1.5, py: 0.85,
+                          }}
+                        >
+                          <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
+                            <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: tokens.textPrimary }}>
+                              {d.label}
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: tokens.textSecondary }}>
+                              Qty: <strong>{d.qty}</strong> @ {fmt(d.unitPrice)}
+                              {d.originalInvoiceRef && (
+                                <span style={{ marginLeft: 6, color: tokens.blue500, fontWeight: 600 }}>
+                                  (Ref: {d.originalInvoiceRef})
+                                </span>
+                              )}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, color: tokens.red500 }}>
+                              −{fmt(d.subtotal)}
+                            </Typography>
+                            <IconButton
+                              size="small"
+                              onClick={() => setDeductions(prev => prev.filter((_, i) => i !== idx))}
+                              sx={{ color: tokens.red500, p: 0.25, '&:hover': { background: alpha(tokens.red500, 0.15) } }}
+                            >
+                              <CloseRoundedIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Stack>
+                    <Divider sx={{ my: 1, borderColor: alpha(tokens.red500, 0.2) }} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 0.5 }}>
+                      <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: tokens.red500 }}>Total Return Amount:</Typography>
+                      <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: tokens.red500 }}>−{fmt(deductionTotal)}</Typography>
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Direct Product Search for Return */}
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: tokens.textSecondary, mb: 0.25, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Add Product to Return
+                </Typography>
+                
+                <Autocomplete
+                  id="return-product-autocomplete"
+                  options={dedProducts}
+                  getOptionLabel={(option) => typeof option === 'string' ? option : `${option.name} (${fmt(option.sellingPrice)}/${option.unit})`}
+                  value={dedSelectedProduct}
+                  onChange={(_, newValue) => {
+                    setDedSelectedProduct(newValue)
+                    if (newValue && typeof newValue !== 'string') {
+                      setDedLabel(newValue.name)
+                      setDedPrice((newValue.sellingPrice / 100).toFixed(2))
+                      setDedProductId(newValue.id)
+                      setDedMaxQty(null)
+                      setTimeout(() => {
+                        const qtyEl = document.getElementById('ded-qty')
+                        if (qtyEl) qtyEl.focus()
+                      }, 50)
+                    }
+                  }}
+                  onInputChange={(_, newInputValue) => {
+                    setDedProductSearch(newInputValue)
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Search Product to Return"
+                      placeholder="Type product name (e.g. Cabbage, Beans)..."
+                      size="small"
+                      fullWidth
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {dedProductsQuery.isFetching ? <CircularProgress size={14} /> : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props} key={option.id} sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', py: 0.5 }}>
+                      <Typography sx={{ fontSize: '0.82rem', fontWeight: 600 }}>{option.name}</Typography>
+                      <Typography sx={{ fontSize: '0.78rem', color: tokens.emerald600, fontWeight: 700 }}>
+                        {fmt(option.sellingPrice)} / {option.unit}
+                      </Typography>
+                    </Box>
+                  )}
+                  noOptionsText={dedProductSearch ? "No matching products found" : "Type to search inventory"}
+                />
+
+                {/* Invoice Lookup for return */}
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TextField
+                    id="inv-lookup-q"
+                    placeholder="Search invoice no..."
+                    label="Or Find Original Invoice (optional)"
+                    size="small"
+                    value={invLookupQ}
+                    onChange={async e => {
+                      const val = e.target.value
+                      setInvLookupQ(val)
+                      if (val.length >= 2) {
+                        setInvLookupLoading(true)
+                        try {
+                          const res = await billingApi.invoiceLookup({ q: val, customerId: customer?.id || undefined, perPage: 8 })
+                          setInvLookupResults(res.data || [])
+                        } catch {
+                          setInvLookupResults([])
+                        }
+                        setInvLookupLoading(false)
+                      } else {
+                        setInvLookupResults([])
+                      }
+                    }}
+                    sx={{ flex: 1 }}
+                    InputProps={{ endAdornment: invLookupLoading ? <CircularProgress size={12} /> : null }}
+                  />
+                  {selectedInv && (
+                    <Button size="small" color="error" sx={{ borderRadius: '8px', fontSize: '0.7rem', px: 1 }}
+                      onClick={() => { setSelectedInv(null); setInvItems([]); setInvLookupQ(''); setInvLookupResults([]); setDedMaxQty(null) }}
+                    >Clear</Button>
+                  )}
+                </Stack>
+
+                {/* Invoice search results dropdown */}
+                {invLookupResults.length > 0 && !selectedInv && (
+                  <Stack spacing={0.5} sx={{ maxHeight: 120, overflow: 'auto', border: `1px solid ${tokens.border}`, borderRadius: '8px', p: 0.5 }}>
+                    {invLookupResults.map(inv => (
+                      <Box
+                        key={inv.id}
+                        sx={{ cursor: 'pointer', px: 1, py: 0.5, borderRadius: '6px', '&:hover': { background: alpha(tokens.emerald500, 0.08) } }}
+                        onClick={async () => {
+                          setSelectedInv(inv)
+                          setInvLookupQ(inv.invoiceNumber)
+                          setInvLookupResults([])
+                          setDedInvoiceRef(inv.invoiceNumber)
+                          try {
+                            const res = await billingApi.getSaleItemsForReturn(inv.id)
+                            setInvItems(res.data || [])
+                          } catch {
+                            setInvItems([])
+                          }
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '0.78rem', fontWeight: 700 }}>{inv.invoiceNumber}</Typography>
+                        <Typography sx={{ fontSize: '0.68rem', color: tokens.textSecondary }}>
+                          {inv.customerName} · {fmt(inv.total)} · {new Date(inv.createdAt).toLocaleDateString('en-IN')}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+
+                {/* Invoice items for return selection */}
+                {selectedInv && invItems.length > 0 && (
+                  <Box sx={{ background: alpha(tokens.blue500, 0.04), borderRadius: '8px', p: 1, border: `1px solid ${alpha(tokens.blue500, 0.15)}` }}>
+                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: tokens.blue500, mb: 0.5 }}>
+                      Items from {selectedInv.invoiceNumber} — click to fill return
+                    </Typography>
+                    <Stack spacing={0.25}>
+                      {invItems.filter(it => it.availableToReturn > 0).map(item => (
+                        <Box
+                          key={item.saleItemId}
+                          sx={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', px: 0.75, py: 0.25, borderRadius: '6px', '&:hover': { background: alpha(tokens.blue500, 0.1) } }}
+                          onClick={() => {
+                            setDedLabel(item.productName)
+                            setDedQty(String(item.availableToReturn))
+                            setDedPrice(String((item.unitPrice / 100).toFixed(2)))
+                            setDedProductId(item.productId)
+                            setDedInvoiceRef(selectedInv.invoiceNumber)
+                            setDedMaxQty(item.availableToReturn)
+                          }}
+                        >
+                          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }}>{item.productName}</Typography>
+                          <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary }}>
+                            avail: {item.availableToReturn} {item.unit} @ {fmt(item.unitPrice)}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Return Item Details Entry */}
+                <Stack spacing={1}>
+                  <Stack direction="row" spacing={1} alignItems="flex-start" flexWrap="wrap" sx={{ gap: 1 }}>
+                    <TextField
+                      id="ded-label"
+                      placeholder="Product Name / Item"
+                      label="Product / Item Name *"
+                      size="small"
+                      value={dedLabel}
+                      onChange={e => setDedLabel(e.target.value)}
+                      sx={{ flex: '2 1 140px' }}
+                    />
+                    <TextField
+                      id="ded-qty"
+                      placeholder="Qty"
+                      label="Return Qty *"
+                      size="small"
+                      type="number"
+                      inputProps={{ min: 0, step: 'any' }}
+                      value={dedQty}
+                      onChange={e => setDedQty(e.target.value)}
+                      helperText={dedMaxQty !== null ? `Max: ${dedMaxQty}` : ''}
+                      sx={{ flex: '1 1 80px' }}
+                    />
+                    <TextField
+                      id="ded-price"
+                      placeholder="₹/unit"
+                      label="Return Rate *"
+                      size="small"
+                      type="number"
+                      inputProps={{ min: 0, step: 'any' }}
+                      value={dedPrice}
+                      onChange={e => setDedPrice(e.target.value)}
+                      sx={{ flex: '1 1 90px' }}
+                      InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                    />
+                  </Stack>
+                  
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <TextField
+                      id="ded-inv-ref"
+                      placeholder="Original invoice (optional)"
+                      label="Invoice Ref (optional)"
+                      size="small"
+                      value={dedInvoiceRef}
+                      onChange={e => setDedInvoiceRef(e.target.value)}
+                      sx={{ flex: 1 }}
+                    />
+                    <Button
+                      id="btn-add-deduction"
+                      variant="contained"
+                      size="small"
+                      color="error"
+                      sx={{ borderRadius: '8px', minWidth: 110, py: 0.8, fontWeight: 700 }}
+                      onClick={() => {
+                        const label = dedLabel.trim()
+                        const qty = parseFloat(dedQty)
+                        const unitPrice = Math.round((parseFloat(dedPrice) || 0) * 100)
+                        if (!label || !qty || qty <= 0 || unitPrice <= 0) {
+                          showToast('Enter valid item name, return qty and rate', 'warning')
+                          return
+                        }
+                        if (dedMaxQty !== null && qty > dedMaxQty) {
+                          showToast(`Return qty (${qty}) cannot exceed available quantity (${dedMaxQty})`, 'warning')
+                          return
+                        }
+                        setDeductions(prev => [...prev, {
+                          label,
+                          qty,
+                          unitPrice,
+                          subtotal: Math.round(qty * unitPrice),
+                          productId: dedProductId || null,
+                          originalInvoiceRef: dedInvoiceRef.trim() || null,
+                        }])
+                        setDedLabel('')
+                        setDedQty('')
+                        setDedPrice('')
+                        setDedProductId(null)
+                        setDedMaxQty(null)
+                        setDedSelectedProduct(null)
+                        setDedProductSearch('')
+                        showToast(`Added return item: ${label}`)
+                      }}
+                    >
+                      + Add Return
+                    </Button>
+                  </Stack>
+
+                  {/* Calculated preview */}
+                  {parseFloat(dedQty) > 0 && parseFloat(dedPrice) > 0 && (
+                    <Box sx={{ background: alpha(tokens.red500, 0.08), p: 0.75, borderRadius: '6px', textAlign: 'right' }}>
+                      <Typography sx={{ fontSize: '0.75rem', color: tokens.red500, fontWeight: 700 }}>
+                        Return Amount: {dedQty} × ₹{parseFloat(dedPrice).toFixed(2)} = −{fmt(Math.round(parseFloat(dedQty) * parseFloat(dedPrice) * 100))}
+                      </Typography>
+                    </Box>
+                  )}
+                </Stack>
+              </CardContent>
+            )}
+          </Card>
         </Grid>
 
         {/* ── RIGHT: Checkout panel ─────────────────────────────────────────── */}
-        <Grid item xs={12} lg={5} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Grid item xs={12} md={5} lg={4.5} sx={{ display: 'flex', flexDirection: 'column' }}>
           <Card
             sx={{
               borderRadius: '16px',
               border: `1px solid ${tokens.border}`,
-              flex: 1,
               display: 'flex',
               flexDirection: 'column',
+              position: { md: 'sticky' },
+              top: { md: 80 },
             }}
           >
             <CardHeader
@@ -1241,17 +1702,17 @@ export default function BillingPage() {
                 </>
               )}
 
-              {/* Discount */}
+              {/* Discount Field (Restored) */}
               <TextField
                 id="checkout-discount"
                 label="Discount (₹)"
                 size="small"
                 type="number"
-                inputProps={{ min: 0, step: 'any' }}
-                onWheel={(e) => e.target.blur()}
+                inputProps={{ min: 0, step: 0.5 }}
                 value={discount}
                 onChange={e => setDiscount(e.target.value)}
                 InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                helperText={discountPaise > 0 ? `Discount: −${fmt(discountPaise)}` : 'Optional flat discount on total'}
               />
 
               {/* Notes */}
@@ -1277,10 +1738,16 @@ export default function BillingPage() {
                   <Typography sx={{ fontSize: '0.85rem', color: tokens.textSecondary }}>Subtotal</Typography>
                   <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>{fmt(subtotal)}</Typography>
                 </Box>
+                {deductionTotal > 0 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
+                    <Typography sx={{ fontSize: '0.85rem', color: tokens.red500 }}>Returns ({deductions.length} line{deductions.length > 1 ? 's' : ''})</Typography>
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: tokens.red500 }}>−{fmt(deductionTotal)}</Typography>
+                  </Box>
+                )}
                 {discountPaise > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-                    <Typography sx={{ fontSize: '0.85rem', color: tokens.red500 }}>Discount</Typography>
-                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: tokens.red500 }}>−{fmt(discountPaise)}</Typography>
+                    <Typography sx={{ fontSize: '0.85rem', color: tokens.amber500 }}>Discount</Typography>
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: tokens.amber500 }}>−{fmt(discountPaise)}</Typography>
                   </Box>
                 )}
                 <Divider sx={{ my: 1, borderColor: tokens.border }} />
@@ -1455,110 +1922,13 @@ export default function BillingPage() {
       </Dialog>
 
       {/* Return Dialog */}
-      <Dialog open={returnDialogOpen} onClose={() => setReturnDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '20px' } }}>
-        <form onSubmit={(e) => {
-          e.preventDefault()
-          if (!returnProduct) {
-            showToast('Please select a product to return', 'warning')
-            return
-          }
-          if (!returnQty || parseFloat(returnQty) <= 0) {
-            showToast('Please enter a valid quantity', 'warning')
-            return
-          }
-          returnMutation.mutate({
-            productId: returnProduct.id,
-            quantity: parseFloat(returnQty),
-            customerId: returnCustomer?.id || null,
-            refundMethod: returnCustomer ? returnRefundMethod : 'cash',
-            invoiceNumber: returnInvoiceNumber.trim() || null,
-            notes: returnNotes.trim() || null
-          })
-        }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Return Billing (Product Return)</DialogTitle>
-          <Divider />
-          <DialogContent>
-            <Stack spacing={2.5} sx={{ pt: 1 }}>
-              <TextField
-                id="return-invoice-number"
-                label="Invoice Number (optional)"
-                size="small"
-                value={returnInvoiceNumber}
-                onChange={e => setReturnInvoiceNumber(e.target.value)}
-                fullWidth
-                placeholder="e.g. INV-0012"
-                helperText="Link this return to a specific purchase invoice"
-              />
-
-              <Autocomplete
-                id="return-product-select"
-                options={returnProducts}
-                getOptionLabel={(p) => p.name || ''}
-                value={returnProduct}
-                onChange={(_, v) => setReturnProduct(v)}
-                onInputChange={(_, v) => setReturnSearch(v)}
-                renderInput={(params) => <TextField {...params} label="Select Product" size="small" required />}
-              />
-
-              <TextField
-                id="return-qty-input"
-                label="Return Quantity"
-                type="number"
-                size="small"
-                value={returnQty}
-                onChange={e => setReturnQty(e.target.value)}
-                required
-                fullWidth
-                inputProps={{ min: 0.0001, step: 'any' }}
-                helperText={returnProduct ? `Unit: ${returnProduct.unit}` : ''}
-              />
-
-              <Autocomplete
-                id="return-customer-select"
-                options={customers}
-                getOptionLabel={(c) => c.name || ''}
-                value={returnCustomer}
-                onChange={(_, v) => {
-                  setReturnCustomer(v)
-                  if (!v) setReturnRefundMethod('cash')
-                }}
-                renderInput={(params) => <TextField {...params} label="Customer (optional)" size="small" placeholder="Walk-in if not selected" />}
-              />
-
-              {returnCustomer && (
-                <FormControl fullWidth size="small">
-                  <InputLabel>Refund Option</InputLabel>
-                  <Select
-                    label="Refund Option"
-                    value={returnRefundMethod}
-                    onChange={e => setReturnRefundMethod(e.target.value)}
-                  >
-                    <MenuItem value="cash">Cash Refund</MenuItem>
-                    <MenuItem value="credit">Deduct from Credit Balance (Dues)</MenuItem>
-                  </Select>
-                </FormControl>
-              )}
-
-              <TextField
-                label="Notes (optional)"
-                size="small"
-                multiline
-                rows={2}
-                value={returnNotes}
-                onChange={e => setReturnNotes(e.target.value)}
-                fullWidth
-                placeholder="Reason for return..."
-              />
-            </Stack>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2.5 }}>
-            <Button onClick={() => setReturnDialogOpen(false)} variant="outlined">Cancel</Button>
-            <Button type="submit" variant="contained" color="warning" disabled={returnMutation.isPending}>
-              {returnMutation.isPending ? 'Processing...' : 'Submit Return'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+      <ReturnBillingDialog
+        open={returnDialogOpen}
+        onClose={() => setReturnDialogOpen(false)}
+        customers={customers}
+        showToast={showToast}
+        onReturnSuccess={(res) => setReturnSuccessData(res)}
+      />
 
       {/* Held / Recall Draft Bills Dialog */}
       <Dialog
@@ -1588,8 +1958,8 @@ export default function BillingPage() {
             <Stack spacing={1.5}>
               {heldBills.map((held) => {
                 const itemTotalPaise = held.cart.reduce((sum, i) => sum + Math.round(i.qty * i.unitPrice), 0);
-                const discountPaise = Math.round((parseFloat(held.discount) || 0) * 100);
-                const finalTotal = Math.max(0, itemTotalPaise - discountPaise);
+                const heldDeductionTotal = (held.deductions || []).reduce((s, d) => s + d.subtotal, 0);
+                const finalTotal = Math.max(0, itemTotalPaise - heldDeductionTotal);
                 return (
                   <Card
                     key={held.id}
@@ -1643,7 +2013,7 @@ export default function BillingPage() {
                           })))
                           setCustomer(held.customer)
                           setPaymentMethod(held.paymentMethod)
-                          setDiscount(held.discount)
+                          setDeductions(held.deductions || [])
                           setCreditDays(held.creditDays)
                           setNotes(held.notes)
                           setAdHocName(held.adHocName || '')
@@ -1675,6 +2045,75 @@ export default function BillingPage() {
             </Stack>
           )}
         </DialogContent>
+      </Dialog>
+
+      {/* ── Return Success Dialog ──────────────────────────────────────── */}
+      <Dialog
+        open={Boolean(returnSuccessData)}
+        onClose={() => setReturnSuccessData(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '20px' } }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', color: tokens.emerald600 }}>✅ Return Processed</Typography>
+            <IconButton size="small" onClick={() => setReturnSuccessData(null)}>
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 2.5 }}>
+          <Stack spacing={1.5}>
+            <Box sx={{ background: tokens.surfaceAlt, borderRadius: '12px', p: 1.75 }}>
+              <Typography sx={{ fontSize: '0.78rem', color: tokens.textSecondary, mb: 0.25 }}>Return Number</Typography>
+              <Typography sx={{ fontWeight: 700, fontSize: '1rem' }}>{returnSuccessData?.returnNumber || '—'}</Typography>
+            </Box>
+            <Box sx={{ background: tokens.surfaceAlt, borderRadius: '12px', p: 1.75 }}>
+              <Typography sx={{ fontSize: '0.78rem', color: tokens.textSecondary, mb: 0.25 }}>Refund Amount</Typography>
+              <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', color: tokens.emerald600 }}>
+                {returnSuccessData ? fmt(returnSuccessData.refundAmount) : '—'}
+              </Typography>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<PrintRoundedIcon />}
+            onClick={() => {
+              if (!returnSuccessData?.returnTransactionId) return
+              const returnId = returnSuccessData.returnTransactionId
+              const iframeId = `ret-success-iframe-${returnId}`
+              document.getElementById(iframeId)?.remove()
+              const iframe = document.createElement('iframe')
+              iframe.id = iframeId
+              iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
+              iframe.src = `/api/billing/returns/${returnId}/preview?print=true`
+              const cleanup = (e) => {
+                if (e.data && e.data.type === 'RETURN_PRINT_DONE') {
+                  window.removeEventListener('message', cleanup)
+                  document.getElementById(iframeId)?.remove()
+                }
+              }
+              window.addEventListener('message', cleanup)
+              document.body.appendChild(iframe)
+            }}
+            sx={{ borderRadius: '10px' }}
+          >
+            Print Return Bill
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => setReturnSuccessData(null)}
+            sx={{ borderRadius: '10px' }}
+          >
+            Done
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   )

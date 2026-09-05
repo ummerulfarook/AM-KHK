@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import {
-  Alert, Box, Card, CardContent, CardHeader, Chip, Divider, FormControl,
-  InputLabel, MenuItem, Pagination, Select, Skeleton, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  Alert, Box, Card, CardContent, CardHeader, Chip, CircularProgress, Divider,
+  FormControl, InputLabel, MenuItem, Pagination, Select, Skeleton, Stack, Table,
+  TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
   InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions, Button,
   IconButton, Paper, Autocomplete, Snackbar, Tooltip, alpha
 } from '@mui/material'
@@ -46,6 +46,10 @@ export default function SalesHistoryPage() {
   const [saleToDelete, setSaleToDelete] = useState(null)
   const [printingId, setPrintingId] = useState(null)
 
+  // Return transactions for the selected sale detail view
+  const [selectedSaleReturns, setSelectedSaleReturns] = useState(null)
+  const [saleReturnsLoading, setSaleReturnsLoading] = useState(false)
+
   const deleteSaleMutation = useMutation({
     mutationFn: billingApi.deleteSale,
     onSuccess: () => {
@@ -70,6 +74,24 @@ export default function SalesHistoryPage() {
     } finally {
       setPrintingId(null)
     }
+  }
+
+  // Launch return bill print in a hidden iframe
+  const handlePrintReturnBill = (returnId) => {
+    const iframeId = `ret-print-${returnId}`
+    document.getElementById(iframeId)?.remove()
+    const iframe = document.createElement('iframe')
+    iframe.id = iframeId
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
+    iframe.src = `/api/billing/returns/${returnId}/preview?print=true`
+    const cleanup = (e) => {
+      if (e.data && e.data.type === 'RETURN_PRINT_DONE') {
+        window.removeEventListener('message', cleanup)
+        document.getElementById(iframeId)?.remove()
+      }
+    }
+    window.addEventListener('message', cleanup)
+    document.body.appendChild(iframe)
   }
 
   const handleWhatsAppShare = async (sale) => {
@@ -158,6 +180,20 @@ export default function SalesHistoryPage() {
   })
 
   const editProducts = editProductsQuery.data?.data || []
+
+  // Load return transactions when the sale detail dialog opens
+  useEffect(() => {
+    if (selectedSale) {
+      setSaleReturnsLoading(true)
+      setSelectedSaleReturns(null)
+      billingApi.getSaleReturns(selectedSale.id)
+        .then(data => setSelectedSaleReturns(data))
+        .catch(() => setSelectedSaleReturns(null))
+        .finally(() => setSaleReturnsLoading(false))
+    } else {
+      setSelectedSaleReturns(null)
+    }
+  }, [selectedSale?.id])
 
   const showToast = (msg, severity = 'success') => {
     setToast({ open: true, msg, severity })
@@ -519,14 +555,120 @@ export default function SalesHistoryPage() {
                 </Box>
                 {selectedSale.discount > 0 && (
                   <Box sx={{ width: '40%', display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                    <Typography variant="body2" sx={{ color: tokens.textSecondary }}>Discount</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.red500 }}>-{fmt(selectedSale.discount)}</Typography>
+                    <Typography variant="body2" sx={{ color: tokens.textSecondary }}>Returns / Discount</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.red500 }}>−{fmt(selectedSale.discount)}</Typography>
                   </Box>
                 )}
                 <Box sx={{ width: '40%', display: 'flex', justifyContent: 'space-between', mt: 1, borderTop: `1px solid ${tokens.border}`, pt: 1 }}>
                   <Typography variant="body2" sx={{ fontWeight: 700 }}>Total</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.emerald600 }}>{fmt(selectedSale.total)}</Typography>
                 </Box>
+              </Box>
+
+              {/* Returns & Deductions embedded in this invoice */}
+              {selectedSale.deductions && selectedSale.deductions.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography sx={{ fontWeight: 700, mb: 1, fontSize: '0.9rem', color: tokens.red500 }}>
+                    ↩ Returns & Deductions
+                  </Typography>
+                  <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: '12px', mb: 1 }}>
+                    <Table size="small">
+                      <TableHead sx={{ backgroundColor: alpha(tokens.red500, 0.06) }}>
+                        <TableRow>
+                          <TableCell sx={{ color: tokens.red500, fontWeight: 700, fontSize: '0.78rem' }}>Item / Description</TableCell>
+                          <TableCell align="right" sx={{ color: tokens.red500, fontWeight: 700, fontSize: '0.78rem' }}>Qty</TableCell>
+                          <TableCell align="right" sx={{ color: tokens.red500, fontWeight: 700, fontSize: '0.78rem' }}>Rate</TableCell>
+                          <TableCell align="right" sx={{ color: tokens.red500, fontWeight: 700, fontSize: '0.78rem' }}>Amount</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {selectedSale.deductions.map((d, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell>
+                              <Typography sx={{ fontSize: '0.82rem', fontWeight: 600 }}>{d.label}</Typography>
+                              {d.originalInvoiceRef && (
+                                <Typography sx={{ fontSize: '0.7rem', color: tokens.textSecondary }}>ref: {d.originalInvoiceRef}</Typography>
+                              )}
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontSize: '0.82rem' }}>{d.qty}</TableCell>
+                            <TableCell align="right" sx={{ fontSize: '0.82rem' }}>{fmt(d.unitPrice)}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, color: tokens.red500, fontSize: '0.82rem' }}>−{fmt(d.subtotal)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              )}
+
+              {/* Linked Return Transactions */}
+              <Box sx={{ mt: 2 }}>
+                {saleReturnsLoading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: tokens.textSecondary }}>
+                    <CircularProgress size={14} />
+                    <Typography sx={{ fontSize: '0.8rem' }}>Loading return transactions…</Typography>
+                  </Box>
+                ) : selectedSaleReturns?.data?.length > 0 ? (
+                  <>
+                    <Typography sx={{ fontWeight: 700, mb: 1, fontSize: '0.9rem', color: tokens.amber500 }}>
+                      📋 Return Transactions ({selectedSaleReturns.data.length})
+                    </Typography>
+                    <Stack spacing={1}>
+                      {selectedSaleReturns.data.map((rt) => (
+                        <Box
+                          key={rt.id}
+                          sx={{
+                            border: `1px solid ${alpha(tokens.red500, 0.25)}`,
+                            borderRadius: '10px',
+                            p: 1.5,
+                            backgroundColor: alpha(tokens.red500, 0.03),
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                            <Box>
+                              <Typography sx={{ fontWeight: 700, fontSize: '0.82rem' }}>
+                                {rt.returnNumber || `RET-#${rt.id}`}
+                              </Typography>
+                              <Typography sx={{ fontSize: '0.7rem', color: tokens.textSecondary }}>
+                                {new Date(rt.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                {rt.originalInvoiceRef && ` · ref: ${rt.originalInvoiceRef}`}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Chip
+                                label={`−${fmt(rt.totalReturnValue)}`}
+                                size="small"
+                                sx={{ fontWeight: 700, backgroundColor: alpha(tokens.red500, 0.12), color: tokens.red500, fontSize: '0.75rem' }}
+                              />
+                              <Tooltip title="Print Return Bill">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handlePrintReturnBill(rt.id)}
+                                >
+                                  <PrintRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          </Box>
+                          {rt.items?.length > 0 && (
+                            <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5, gap: 0.5 }}>
+                              {rt.items.map((item, i) => (
+                                <Chip
+                                  key={i}
+                                  label={`${item.label} × ${item.quantity}`}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ height: 20, fontSize: '0.67rem', borderColor: alpha(tokens.red500, 0.3), color: tokens.red500 }}
+                                />
+                              ))}
+                            </Stack>
+                          )}
+                        </Box>
+                      ))}
+                    </Stack>
+                  </>
+                ) : null}
               </Box>
 
               {selectedSale.notes && (

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Return Bill {{ rt.return_number }}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Poppins', Arial, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      color: #0F2419;
+      background: #fff;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      width: 98mm;
+      padding: 6mm 4mm;
+      margin: 0 auto;
+      border-left: 1.5px dashed #E5484D;
+      border-right: 1.5px dashed #E5484D;
+      min-height: 100mm;
+    }
+
+    .header {
+      display: block;
+      padding-bottom: 6px;
+      border-bottom: 2.5px solid #E5484D;
+      margin-bottom: 10px;
+    }
+
+    .header-row1 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 5px;
+    }
+
+    .shop-name {
+      font-size: 16.5px;
+      font-weight: 800;
+      color: #0E3A2A;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
+    }
+
+    .header-row2 {
+      font-size: 9.5px;
+      color: #000000;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 6px;
+    }
+
+    .header-row3 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 800;
+      color: #E5484D;
+      padding-top: 4px;
+    }
+
+    .return-badge {
+      text-align: center;
+      background: #fff5f5;
+      border: 1.5px solid #E5484D;
+      border-radius: 6px;
+      padding: 4px 8px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #E5484D;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .customer-block {
+      background: #FFF5F5;
+      border: 1px solid #f0c0c0;
+      border-radius: 8px;
+      padding: 5px 8px;
+      margin-bottom: 8px;
+    }
+    .customer-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #E5484D;
+      margin-bottom: 3px;
+    }
+    .customer-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0F2419;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 8px;
+    }
+    thead tr {
+      background: #fff5f5;
+      border-bottom: 2px solid #E5484D;
+    }
+    th {
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 5px 4px;
+      color: #E5484D;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    td {
+      font-size: 11px;
+      padding: 5px 4px;
+      border-bottom: 1px solid #f5dada;
+      vertical-align: middle;
+    }
+
+    .totals {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1.5px solid #E5484D;
+    }
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+    }
+    .total-value {
+      font-size: 17px;
+      font-weight: 900;
+      color: #E5484D;
+    }
+
+    .ref-block {
+      background: #EEF5F0;
+      border: 1px solid #c2d1c7;
+      border-radius: 6px;
+      padding: 4px 8px;
+      margin-bottom: 8px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #134832;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #71837A;
+      border-top: 1px dashed #E5484D;
+      padding-top: 6px;
+    }
+
+    @media print {
+      @page {
+        size: A4;
+        margin: 8mm 20mm;
+      }
+      body { margin: 0; padding: 0; background: #fff; }
+      .page {
+        margin: 0 auto !important;
+        width: 98mm !important;
+        border-left: 1.5px dashed #E5484D !important;
+        border-right: 1.5px dashed #E5484D !important;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-row1">
+      {% if logo_base64 %}
+        <img src="{{ logo_base64 }}" style="height: 44px; width: auto; max-height: 44px; max-width: 50px; border-radius: 6px; filter: contrast(1.4) brightness(0.7); display: block; flex-shrink: 0;" alt="AM &amp; KHK Logo" />
+      {% endif %}
+      <div class="shop-name">AM &amp; KHK Vegetable Merchants</div>
+    </div>
+
+    <div class="header-row2">
+      NH-17, CHERANALLUR, ERNAKULAM &nbsp;|&nbsp; Ph: 9846089118, 9895110194, 7012794021
+    </div>
+
+    <div class="header-row3">
+      <div>RETURN: {{ rt.return_number or ('#' ~ rt.id) }}</div>
+      <div>DATE: {{ formatted_date }}</div>
+    </div>
+  </div>
+
+  <!-- Return Badge -->
+  <div class="return-badge">↩ Return / Credit Note</div>
+
+  <!-- Customer Block -->
+  {% if rt.customer %}
+  <div class="customer-block">
+    <div class="customer-label">Customer</div>
+    <div class="customer-name">{{ rt.customer.name }}</div>
+    {% if rt.customer.phone %}
+      <div style="font-size: 11px; color: #000; font-weight: 700;">{{ rt.customer.phone[:4] }}*****</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Original Invoice Reference -->
+  {% if rt.original_invoice_ref %}
+  <div class="ref-block">
+    ↩ Against Invoice: <strong>{{ rt.original_invoice_ref }}</strong>
+    {% if rt.original_sale %}
+      &nbsp;|&nbsp; Orig. Date: {{ rt.original_sale.created_at.strftime('%d %b %Y') }}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Return Items Table -->
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align: left; width: 42%;">Item</th>
+        <th style="text-align: right; width: 15%;">Qty</th>
+        <th style="text-align: right; width: 22%;">Rate</th>
+        <th style="text-align: right; width: 21%;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in rt.items %}
+      <tr>
+        <td style="font-weight: 700; text-transform: uppercase; font-size: 11px;">
+          {{ item.label }}
+          {% if item.original_invoice_ref and item.original_invoice_ref != rt.original_invoice_ref %}
+            <div style="font-size: 8.5px; color: #71837A; font-weight: 600;">ref: {{ item.original_invoice_ref }}</div>
+          {% endif %}
+        </td>
+        <td style="text-align: right; font-weight: 600; font-size: 11px; color: #000;">{{ item.quantity }}</td>
+        <td style="text-align: right; font-weight: 600; font-size: 11px; color: #000;">₹{{ "%.2f"|format(item.unit_price / 100) }}</td>
+        <td style="text-align: right; font-weight: 800; font-size: 12px; color: #E5484D;">₹{{ "%.2f"|format(item.subtotal / 100) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals">
+    <div class="totals-row" style="font-size: 17px; font-weight: 800; border-top: 2px solid #000; margin-top: 4px; padding-top: 7px;">
+      <span>Total Return Value</span>
+      <span class="total-value">₹{{ "%.2f"|format(rt.total_return_value / 100) }}</span>
+    </div>
+    {% if rt.current_sale %}
+    <div class="totals-row" style="font-size: 11px; color: #71837A; margin-top: 4px;">
+      <span>Applied to Invoice</span>
+      <span>{{ rt.current_sale.invoice_number }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Notes -->
+  {% if rt.notes %}
+  <div style="font-size: 10px; color: #71837A; margin-top: 8px; background: #EEF5F0; border-radius: 6px; padding: 5px 8px;">
+    {{ rt.notes }}
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="footer">
+    Cashier: {{ rt.cashier.name if rt.cashier else 'System' }} &nbsp;|&nbsp; {{ rt.return_number or ('#' ~ rt.id) }}<br/>
+    This is a computer-generated return receipt.
+  </div>
+
+</div>
+</body>
+</html>

@@ -8,7 +8,9 @@ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded'
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded'
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded'
-import { SIDEBAR_WIDTH } from './Sidebar'
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
+import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded'
+import { useLayout } from '../../contexts/LayoutContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { tokens } from '../../theme/theme'
 
@@ -22,6 +24,7 @@ const ROLE_COLORS = {
 export default function Topbar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { collapsed, toggleCollapse, sidebarWidth } = useLayout()
   const [anchorEl, setAnchorEl] = useState(null)
 
   const roleStyle = ROLE_COLORS[user?.role] ?? ROLE_COLORS.cashier
@@ -37,14 +40,30 @@ export default function Topbar() {
       position="fixed"
       elevation={0}
       sx={{
-        left: SIDEBAR_WIDTH,
-        width: `calc(100% - ${SIDEBAR_WIDTH}px)`,
+        left: `${sidebarWidth}px`,
+        width: `calc(100% - ${sidebarWidth}px)`,
         backgroundColor: tokens.surface,
         borderBottom: `1px solid ${tokens.border}`,
         zIndex: 1100,
+        transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1), width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
-      <Toolbar sx={{ gap: 2 }}>
+      <Toolbar sx={{ gap: 1.5 }}>
+        {/* ── Sidebar Toggle Button ────────────────────────────────────── */}
+        <Tooltip title={collapsed ? "Expand sidebar" : "Minimize sidebar"}>
+          <IconButton
+            id="btn-topbar-sidebar-toggle"
+            size="small"
+            onClick={toggleCollapse}
+            sx={{
+              color: tokens.textSecondary,
+              '&:hover': { color: tokens.emerald600, background: alpha(tokens.emerald500, 0.08) }
+            }}
+          >
+            {collapsed ? <MenuRoundedIcon fontSize="small" /> : <MenuOpenRoundedIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
+
         {/* ── Branch pill ──────────────────────────────────────────────── */}
         <Chip
           avatar={<Avatar src="/logo.png" alt="Logo" sx={{ width: 22, height: 22 }} />}

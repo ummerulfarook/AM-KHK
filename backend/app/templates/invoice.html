@@ -260,6 +260,9 @@
     {% if phone %}
       <div class="customer-phone">{{ phone[:4] }}*****</div>
     {% endif %}
+    {% if sale.store %}
+      <div style="font-size: 10.5px; font-weight: 700; color: #134832; margin-top: 2px;">Sub: {{ sale.store.name }}</div>
+    {% endif %}
   </div>
 
   <!-- Items table -->
@@ -291,14 +294,73 @@
     </tbody>
   </table>
 
+  <!-- Returns / Deductions section -->
+  {% if sale.deductions %}
+    {% set ded_list = sale.deductions | fromjson %}
+    {% if ded_list %}
+  <div style="margin-bottom: 8px;">
+    <div style="font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #E5484D; margin-bottom: 3px; border-top: 1.5px dashed #E5484D; padding-top: 4px;">↩ Returns &amp; Deductions</div>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+      <thead>
+        <tr>
+          <th style="text-align: left; font-size: 9.5px; font-weight: 700; color: #E5484D; padding: 2px 4px; background: #fff5f5; border-bottom: 1px solid #E5484D;">Item / Description</th>
+          <th style="text-align: right; font-size: 9.5px; font-weight: 700; color: #E5484D; padding: 2px 4px; background: #fff5f5; border-bottom: 1px solid #E5484D;">Qty</th>
+          <th style="text-align: right; font-size: 9.5px; font-weight: 700; color: #E5484D; padding: 2px 4px; background: #fff5f5; border-bottom: 1px solid #E5484D;">Rate</th>
+          <th style="text-align: right; font-size: 9.5px; font-weight: 700; color: #E5484D; padding: 2px 4px; background: #fff5f5; border-bottom: 1px solid #E5484D;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in ded_list %}
+        <tr>
+          <td style="font-size: 10.5px; font-weight: 600; color: #0F2419; padding: 2px 4px; border-bottom: 1px solid #f0d0d0;">
+            {{ d.label }}
+            {% if d.originalInvoiceRef %}
+              <div style="font-size: 8.5px; color: #71837A; font-weight: 600;">ref: {{ d.originalInvoiceRef }}</div>
+            {% endif %}
+          </td>
+          <td style="font-size: 10.5px; font-weight: 600; color: #0F2419; padding: 2px 4px; border-bottom: 1px solid #f0d0d0; text-align: right;">{{ d.qty }}</td>
+          <td style="font-size: 10.5px; font-weight: 600; color: #0F2419; padding: 2px 4px; border-bottom: 1px solid #f0d0d0; text-align: right;">₹{{ "%.2f"|format(d.unitPrice / 100) }}</td>
+          <td style="font-size: 10.5px; font-weight: 700; color: #E5484D; padding: 2px 4px; border-bottom: 1px solid #f0d0d0; text-align: right;">−₹{{ "%.2f"|format(d.subtotal / 100) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+    {% endif %}
+  {% endif %}
+
   <!-- Totals -->
   <div class="totals">
-    {% if sale.discount > 0 %}
+    {% set return_total = 0 %}
+    {% if sale.deductions %}
+      {% set ded_list = sale.deductions | fromjson %}
+      {% if ded_list %}
+        {% set return_total = ded_list | map(attribute='subtotal') | sum %}
+      {% endif %}
+    {% endif %}
+    {% set standalone_disc = sale.discount - return_total %}
+
+    {% if return_total > 0 or standalone_disc > 0 %}
     <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
-      <span class="totals-label">Discount</span>
-      <span style="color:#E5484D; font-weight: 700;">−₹{{ "%.2f"|format(sale.discount / 100) }}</span>
+      <span class="totals-label">Subtotal</span>
+      <span>₹{{ "%.2f"|format(sale.subtotal / 100) }}</span>
     </div>
     {% endif %}
+
+    {% if return_total > 0 %}
+    <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #E5484D; margin-bottom: 5px;">
+      <span class="totals-label">Returned Items</span>
+      <span style="color:#E5484D; font-weight: 700;">−₹{{ "%.2f"|format(return_total / 100) }}</span>
+    </div>
+    {% endif %}
+
+    {% if standalone_disc > 0 %}
+    <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
+      <span class="totals-label">Discount</span>
+      <span style="color:#F0940C; font-weight: 700;">−₹{{ "%.2f"|format(standalone_disc / 100) }}</span>
+    </div>
+    {% endif %}
+
     {% if sale.tax > 0 %}
     <div class="totals-row" style="font-size: 13.5px; font-weight: 600; color: #000000; margin-bottom: 5px;">
       <span class="totals-label">Tax</span>

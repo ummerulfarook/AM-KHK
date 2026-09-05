@@ -13,10 +13,23 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 # Locate the templates folder relative to this file
 _TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 
+import json as _json
+
 _jinja_env = Environment(
     loader=FileSystemLoader(_TEMPLATE_DIR),
     autoescape=select_autoescape(["html"]),
 )
+
+# Register a `fromjson` filter so templates can parse stored JSON strings
+def _fromjson_filter(value):
+    if not value:
+        return []
+    try:
+        return _json.loads(value)
+    except Exception:
+        return []
+
+_jinja_env.filters["fromjson"] = _fromjson_filter
 
 
 def _get_logo_base64() -> str:
@@ -250,10 +263,34 @@ def _write_receipt(p, sale):
         line = f"{rate:<6} {name:<11} {qty:>5} {amt:>7}\n"
         p.text(line)
 
+    # Returned Items (if any)
+    deductions_list = []
+    if sale.deductions:
+        try:
+            import json
+            deductions_list = json.loads(sale.deductions)
+        except Exception:
+            deductions_list = []
+
+    if deductions_list:
+        p.text("-" * 32 + "\n")
+        p.text("RETURNED ITEMS:\n")
+        for d in deductions_list:
+            lbl = d.get('label', 'Return')[:11].upper()
+            qty = f"{d.get('qty', 0)}"[:5]
+            amt = f"-{d.get('subtotal', 0)/100:.2f}"[:7]
+            p.text(f"RET   {lbl:<11} {qty:>5} {amt:>7}\n")
+
     p.text("-" * 32 + "\n")
-    if sale.discount > 0:
+    return_total = sum(d.get('subtotal', 0) for d in deductions_list)
+    standalone_disc = max(0, (sale.discount or 0) - return_total)
+
+    if return_total > 0 or standalone_disc > 0:
         p.text(f"Subtotal: Rs{sale.subtotal/100:.2f}\n")
-        p.text(f"Discount: -Rs{sale.discount/100:.2f}\n")
+    if return_total > 0:
+        p.text(f"Returns : -Rs{return_total/100:.2f}\n")
+    if standalone_disc > 0:
+        p.text(f"Discount: -Rs{standalone_disc/100:.2f}\n")
     p.set(bold=True)
     p.text(f"TOTAL   : Rs{sale.total/100:.2f}\n")
     p.set(bold=False)
@@ -267,3 +304,22 @@ def _write_receipt(p, sale):
     p.set(align="center")
     p.text("Thank you! Come again.\n")
     p.cut()
+
+
+def render_return_bill_html(return_txn, settings: dict) -> str:
+    """
+    Render return_bill.html to an HTML string for PDF generation or browser preview.
+    """
+    from datetime import timezone, timedelta
+    ist_tz = timezone(timedelta(hours=5, minutes=30))
+    created_at_ist = return_txn.created_at.astimezone(ist_tz)
+    formatted_date = created_at_ist.strftime("%d %b %Y")
+
+    tpl = _jinja_env.get_template("return_bill.html")
+    logo_base64 = _get_logo_base64()
+    return tpl.render(
+        rt=return_txn,
+        settings=settings,
+        logo_base64=logo_base64,
+        formatted_date=formatted_date,
+    )

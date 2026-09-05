@@ -22,6 +22,9 @@ export const reportsApi = {
   /** GET /api/reports/customers — Get customer purchases report */
   getCustomerReports: (params = {}) => api.get('/api/reports/customers', { params }).then(r => r.data),
 
+  /** GET /api/reports/cash-summary — Get Cash collections summary report */
+  getCashReports: (params = {}) => api.get('/api/reports/cash-summary', { params }).then(r => r.data),
+
   /** GET /api/reports/upi-summary — Get UPI accounts summary report */
   getUpiReports: (params = {}) => api.get('/api/reports/upi-summary', { params }).then(r => r.data),
 
