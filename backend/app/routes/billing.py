@@ -18,7 +18,7 @@ from decimal import Decimal
 
 from flask import Blueprint, request, jsonify, send_file, Response
 from flask_login import login_required, current_user
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from app import db
 from app.models.sale import RetailSale, SaleItem, ReturnTransaction, ReturnItem
